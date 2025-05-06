@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.reports.aipbackend.mapper.UserMapper">
+    
+    <resultMap id="BaseResultMap" type="com.reports.aipbackend.entity.User">
+        <id column="user_id" property="userId" />
+        <result column="username" property="username" />
+        <result column="password_hash" property="passwordHash" />
+        <result column="openid" property="openid" />
+        <result column="role" property="role" />
+        <result column="phone_number" property="phoneNumber" />
+    </resultMap>
+
+    <select id="findByUsername" resultMap="BaseResultMap">
+        SELECT * FROM users WHERE username = #{username}
+    </select>
+
+    <select id="findByUsernameAndPassword" resultMap="BaseResultMap">
+        SELECT * FROM users WHERE username = #{username} AND password_hash = #{passwordHash}
+    </select>
+
+    <select id="findByOpenid" resultMap="BaseResultMap">
+        SELECT * FROM users WHERE openid = #{openid}
+    </select>
+
+    <insert id="insert" parameterType="com.reports.aipbackend.entity.User" useGeneratedKeys="true" keyProperty="userId">
+        INSERT INTO users (username, password_hash, openid, role, phone_number)
+        VALUES (#{username}, #{passwordHash}, #{openid}, #{role}, #{phoneNumber})
+    </insert>
+
+    <update id="update" parameterType="com.reports.aipbackend.entity.User">
+        UPDATE users 
+        SET username = #{username},
+            password_hash = #{passwordHash},
+            openid = #{openid},
+            role = #{role},
+            phone_number = #{phoneNumber}
+        WHERE user_id = #{userId}
+    </update>
+
+    <update id="updatePassword">
+        UPDATE users SET password_hash = #{passwordHash} WHERE user_id = #{userId}
+    </update>
+
+</mapper> 
