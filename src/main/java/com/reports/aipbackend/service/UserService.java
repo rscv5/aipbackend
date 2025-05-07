@@ -93,6 +93,16 @@ public class UserService {
     }
 
     /**
+     * 根据用户ID查找用户
+     * @param userId 用户ID
+     * @return 用户信息
+     */
+    public User findByUserId(Integer userId) {
+        logger.info("Finding user by userId: {}", userId);
+        return userMapper.findByUserId(userId);
+    }
+
+    /**
      * 保存用户信息
      * @param user 用户信息
      * @return 保存后的用户信息

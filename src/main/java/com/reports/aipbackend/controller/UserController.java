@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import io.jsonwebtoken.Claims;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -104,21 +105,36 @@ public class UserController {
     }
 
     @GetMapping(value = "/user/info", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<?> getUserInfo(@RequestParam String openid) {
-        logger.info("Getting user info for openid: {}", openid);
+    public ResponseEntity<?> getUserInfo(@RequestHeader("Authorization") String authHeader) {
         try {
-            User user = userService.findByOpenid(openid);
-            if (user != null) {
-                user.setPasswordHash(null);
-                logger.info("User info found for openid: {}", openid);
-                return ResponseEntity.ok(user);
-            } else {
-                logger.warn("User not found for openid: {}", openid);
-                return ResponseEntity.notFound().build();
+            if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+                logger.warn("Invalid authorization header");
+                return ResponseEntity.status(403).body("无效的认证信息");
             }
+
+            String token = authHeader.substring(7);
+            Claims claims = jwtUtils.getClaimsFromToken(token);
+            
+            if (claims == null) {
+                logger.warn("Invalid token");
+                return ResponseEntity.status(403).body("无效的token");
+            }
+
+            Integer userId = claims.get("userId", Integer.class);
+            User user = userService.findByUserId(userId);
+            
+            if (user == null) {
+                logger.warn("User not found for userId: {}", userId);
+                return ResponseEntity.status(403).body("用户不存在");
+            }
+
+            // 不返回敏感信息
+            user.setPasswordHash(null);
+            logger.info("User info found for userId: {}", userId);
+            return ResponseEntity.ok(user);
         } catch (Exception e) {
             logger.error("Error getting user info: ", e);
-            return ResponseEntity.internalServerError().body("服务器内部错误");
+            return ResponseEntity.status(403).body("获取用户信息失败");
         }
     }
 } 

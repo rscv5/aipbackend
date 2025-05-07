@@ -51,4 +51,11 @@ public interface UserMapper {
      * @param passwordHash 密码哈希
      */
     void updatePassword(@Param("userId") Integer userId, @Param("passwordHash") String passwordHash);
+
+    /**
+     * 根据用户ID查找用户
+     * @param userId 用户ID
+     * @return 用户信息
+     */
+    User findByUserId(@Param("userId") Integer userId);
 } 

@@ -23,6 +23,10 @@
         SELECT * FROM users WHERE openid = #{openid}
     </select>
 
+    <select id="findByUserId" resultMap="BaseResultMap">
+        SELECT * FROM users WHERE user_id = #{userId}
+    </select>
+
     <insert id="insert" parameterType="com.reports.aipbackend.entity.User" useGeneratedKeys="true" keyProperty="userId">
         INSERT INTO users (username, password_hash, openid, role, phone_number)
         VALUES (#{username}, #{passwordHash}, #{openid}, #{role}, #{phoneNumber})

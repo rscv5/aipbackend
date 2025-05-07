@@ -26,6 +26,9 @@ public class SecurityConfig {
     @Autowired
     private CustomUserDetailsService userDetailsService;
 
+    @Autowired
+    private JwtAuthenticationFilter jwtAuthenticationFilter;
+
     /**
      * 配置密码编码器
      */
@@ -57,12 +60,13 @@ public class SecurityConfig {
                 .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                 // 公开访问的接口
-                .requestMatchers("/api/grid/login", "/api/user/login").permitAll()
+                .requestMatchers("/api/grid/login", "/api/user/login", "/api/area/login").permitAll()
                 // 需要认证的接口
                 .requestMatchers("/api/**").authenticated()
                 // 其他请求需要认证
                 .anyRequest().authenticated()
-            );
+            )
+            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
         
         return http.build();
     }
