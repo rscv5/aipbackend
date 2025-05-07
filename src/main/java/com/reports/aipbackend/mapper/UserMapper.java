@@ -57,5 +57,5 @@ public interface UserMapper {
      * @param userId 用户ID
      * @return 用户信息
      */
-    User findByUserId(@Param("userId") Integer userId);
+    User findById(Integer userId);
 } 

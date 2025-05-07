@@ -51,9 +51,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
         try {
-           logger.info("=== 开始处理请求 ===");
-           logger.info("请求路径: {}", request.getRequestURI());
-           logger.info("请求方法: {}", request.getMethod());
+            logger.info("=== 开始处理请求 ===");
+            logger.info("请求路径: {}", request.getRequestURI());
+            logger.info("请求方法: {}", request.getMethod());
             
             String jwt = getJwtFromRequest(request);
             logger.info("获取到的JWT: {}", jwt);
@@ -62,18 +62,34 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 try {
                     if (jwtUtils.validateToken(jwt)) {
                         logger.info("JWT验证成功");
-                        String username = jwtUtils.getClaimsFromToken(jwt).get("username", String.class);
-                        logger.info("从JWT中提取的用户名: {}", username);
-
-                        UserDetails userDetails = userDetailsService.loadUserByUsername(username);
-                        logger.info("加载的用户详情: {}", userDetails);
-
-                        UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
-                                userDetails, null, userDetails.getAuthorities());
-                        authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-
-                        SecurityContextHolder.getContext().setAuthentication(authentication);
-                        logger.info("认证信息已设置到SecurityContext");
+                        var claims = jwtUtils.getClaimsFromToken(jwt);
+                        
+                        // 尝试通过 userId 加载用户
+                        Integer userId = claims.get("userId", Integer.class);
+                        if (userId != null) {
+                            UserDetails userDetails = userDetailsService.loadUserById(userId);
+                            if (userDetails != null) {
+                                setAuthentication(userDetails, request);
+                                filterChain.doFilter(request, response);
+                                return;
+                            }
+                        }
+                        
+                        // 如果 userId 不存在或加载失败，尝试使用 username
+                        String username = claims.get("username", String.class);
+                        if (username != null) {
+                            UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+                            if (userDetails != null) {
+                                setAuthentication(userDetails, request);
+                                filterChain.doFilter(request, response);
+                                return;
+                            }
+                        }
+                        
+                        logger.warn("无法从JWT中获取有效的用户信息");
+                        response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                        response.getWriter().write("Invalid user information in token");
+                        return;
                     } else {
                         logger.warn("JWT验证失败");
                         response.setStatus(HttpServletResponse.SC_FORBIDDEN);
@@ -83,30 +99,30 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 } catch (Exception e) {
                     logger.error("JWT处理过程中发生错误", e);
                     response.setStatus(HttpServletResponse.SC_FORBIDDEN);
-                    response.getWriter().write("Token processing error: " + e.getMessage());
+                    response.getWriter().write("Token processing error");
                     return;
                 }
-            } else {
-                logger.warn("请求中没有找到JWT");
-                response.setStatus(HttpServletResponse.SC_FORBIDDEN);
-                response.getWriter().write("No token found");
-                return;
             }
+            
+            filterChain.doFilter(request, response);
         } catch (Exception e) {
             logger.error("过滤器处理过程中发生错误", e);
-            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
-            response.getWriter().write("Filter error: " + e.getMessage());
-            return;
+            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            response.getWriter().write("Internal server error");
         }
-        
-        logger.info("=== 请求处理完成 ===");
-        filterChain.doFilter(request, response);
+    }
+
+    private void setAuthentication(UserDetails userDetails, HttpServletRequest request) {
+        UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
+                userDetails, null, userDetails.getAuthorities());
+        authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+        logger.info("认证信息已设置到SecurityContext");
     }
 
     private String getJwtFromRequest(HttpServletRequest request) {
         String bearerToken = request.getHeader("Authorization");
         logger.info("Authorization header: {}", bearerToken);
-        
         if (bearerToken != null && bearerToken.startsWith("Bearer ")) {
             return bearerToken.substring(7);
         }

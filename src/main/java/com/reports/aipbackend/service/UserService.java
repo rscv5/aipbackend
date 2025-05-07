@@ -5,7 +5,7 @@ import com.reports.aipbackend.mapper.UserMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 /**
@@ -20,7 +20,7 @@ public class UserService {
     private UserMapper userMapper;
 
     @Autowired
-    private BCryptPasswordEncoder passwordEncoder;
+    private PasswordEncoder passwordEncoder;
 
     /**
      * 用户登录
@@ -99,7 +99,7 @@ public class UserService {
      */
     public User findByUserId(Integer userId) {
         logger.info("Finding user by userId: {}", userId);
-        return userMapper.findByUserId(userId);
+        return userMapper.findById(userId);
     }
 
     /**
