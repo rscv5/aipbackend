@@ -118,4 +118,17 @@ public class UserService {
         }
         return user;
     }
+
+    /**
+     * 根据openid获取用户信息
+     * @param openid 用户openid
+     * @return 用户信息
+     */
+    public User getUserByOpenid(String openid) {
+        logger.info("根据openid查询用户: openid={}", openid);
+        if (openid == null || openid.trim().isEmpty()) {
+            return null;
+        }
+        return userMapper.findByOpenid(openid);
+    }
 } 

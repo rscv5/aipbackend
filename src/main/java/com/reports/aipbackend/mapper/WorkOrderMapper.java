@@ -3,6 +3,7 @@ package com.reports.aipbackend.mapper;
 import com.reports.aipbackend.entity.WorkOrder;
 import org.apache.ibatis.annotations.*;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Mapper
@@ -54,4 +55,31 @@ public interface WorkOrderMapper {
             "handled_by, handled_images, handled_desc, feedback_time " +
             "FROM work_orders ORDER BY created_at DESC")
     List<WorkOrder> findAll();
+    
+    // 根据用户openid和状态查询工单列表
+    @Select("<script>" +
+            "SELECT work_id, user_openid, title, description, image_urls, " +
+            "address, building_info, status, created_at, updated_at, " +
+            "handled_by, handled_images, handled_desc, feedback_time " +
+            "FROM work_orders " +
+            "WHERE user_openid = #{userOpenid} " +
+            "<if test='status != null and status != \"全部\"'>" +
+            "AND status = #{status} " +
+            "</if>" +
+            "ORDER BY created_at DESC" +
+            "</script>")
+    List<WorkOrder> findByUserOpenidAndStatus(@Param("userOpenid") String userOpenid, @Param("status") String status);
+
+    /**
+     * 查询用户最近提交的工单
+     * @param userOpenid 用户openid
+     * @param startTime 开始时间
+     * @return 工单列表
+     */
+    @Select("SELECT * FROM work_orders " +
+            "WHERE user_openid = #{userOpenid} " +
+            "AND created_at >= #{startTime} " +
+            "ORDER BY created_at DESC")
+    List<WorkOrder> findRecentOrdersByUser(@Param("userOpenid") String userOpenid, 
+                                         @Param("startTime") LocalDateTime startTime);
 } 

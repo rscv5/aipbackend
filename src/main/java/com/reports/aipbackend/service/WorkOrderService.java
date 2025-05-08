@@ -3,6 +3,7 @@ package com.reports.aipbackend.service;
 import com.reports.aipbackend.entity.WorkOrder;
 import com.reports.aipbackend.entity.WorkOrderProcessing;
 import com.reports.aipbackend.entity.WorkOrderFeedback;
+import com.reports.aipbackend.entity.User;
 import com.reports.aipbackend.mapper.WorkOrderMapper;
 import com.reports.aipbackend.mapper.WorkOrderProcessingMapper;
 import com.reports.aipbackend.mapper.WorkOrderFeedbackMapper;
@@ -10,6 +11,7 @@ import com.reports.aipbackend.exception.BusinessException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -37,63 +39,59 @@ public class WorkOrderService {
     @Autowired
     private WorkOrderFeedbackMapper feedbackMapper;
     
+    @Autowired
+    private UserService userService;
+    
     /**
      * 创建工单
      * @param workOrder 工单信息
-     * @return 创建后的工单
+     * @return 创建的工单
      */
     @Transactional
     public WorkOrder createWorkOrder(WorkOrder workOrder) {
         logger.info("开始创建工单: {}", workOrder);
         
-        // 1. 验证必填字段
-        if (workOrder.getUserOpenid() == null || workOrder.getUserOpenid().trim().isEmpty()) {
-            logger.error("创建工单失败: 用户openid为空");
-            throw new BusinessException("用户openid不能为空");
-        }
-        if (workOrder.getDescription() == null || workOrder.getDescription().trim().isEmpty()) {
-            logger.error("创建工单失败: 描述为空");
-            throw new BusinessException("描述不能为空");
+        // 1. 检查用户是否存在
+        User user = userService.getUserByOpenid(workOrder.getUserOpenid());
+        if (user == null) {
+            logger.error("创建工单失败: 用户不存在, openid={}", workOrder.getUserOpenid());
+            throw new BusinessException("用户不存在");
         }
 
-        if (workOrder.getAddress() == null || workOrder.getAddress().trim().isEmpty()) {
-            logger.error("创建工单失败: 地址为空");
-            throw new BusinessException("地址不能为空");
-        }
+        // 2. 检查是否重复提交
+        // 获取用户最近1分钟内提交的工单
+        List<WorkOrder> recentOrders = workOrderMapper.findRecentOrdersByUser(
+            workOrder.getUserOpenid(),
+            LocalDateTime.now().minusMinutes(1)
+        );
         
-        if (workOrder.getBuildingInfo() == null || workOrder.getBuildingInfo().trim().isEmpty()) {
-            logger.error("创建工单失败: 楼栋信息为空");
-            throw new BusinessException("楼栋信息不能为空");
+        // 检查是否存在内容相似的工单
+        for (WorkOrder recentOrder : recentOrders) {
+            if (isSimilarOrder(recentOrder, workOrder)) {
+                logger.warn("检测到重复提交工单: userOpenid={}, recentOrderId={}", 
+                    workOrder.getUserOpenid(), recentOrder.getWorkId());
+                throw new BusinessException("请勿重复提交相同内容的工单，请等待1分钟后再试");
+            }
         }
 
-        // 设置默认值
-        if (workOrder.getStatus() == null) {
-            workOrder.setStatus("未领取");
-        }
-        
-        LocalDateTime now = LocalDateTime.now();
-        workOrder.setCreatedAt(now);
-        workOrder.setUpdatedAt(now);
-        
-        // 3. 如果没有标题，自动生成标题（取描述的前50个字符）
-        if (workOrder.getTitle() == null || workOrder.getTitle().trim().isEmpty()) {
-            String description = workOrder.getDescription().trim();
-            workOrder.setTitle(description.length() > 50 ? description.substring(0, 50) + "..." : description);
-        }
-        
         try {
-            // 插入工单
+            // 3. 设置工单初始状态
+            workOrder.setStatus("未领取");
+            workOrder.setCreatedAt(LocalDateTime.now());
+            workOrder.setUpdatedAt(LocalDateTime.now());
+            
+            // 4. 保存工单
             workOrderMapper.insert(workOrder);
             logger.info("工单创建成功: workId={}", workOrder.getWorkId());
             
-            // 记录处理日志
+            // 5. 创建工单处理记录
             WorkOrderProcessing processing = new WorkOrderProcessing();
             processing.setWorkId(workOrder.getWorkId());
             processing.setOperatorOpenid(workOrder.getUserOpenid());
-            processing.setOperatorRole("普通用户");
+            processing.setOperatorRole("普通用户"); // 设置创建操作人角色为"普通用户"
             processing.setActionType("提交工单");
-            processing.setActionDescription("用户创建工单");
-            processing.setActionTime(now);
+            processing.setActionTime(LocalDateTime.now());
+            processing.setActionDescription("用户提交工单");
             processingMapper.insert(processing);
             
             return workOrder;
@@ -101,6 +99,81 @@ public class WorkOrderService {
             logger.error("工单创建失败", e);
             throw new BusinessException("工单创建失败：" + e.getMessage());
         }
+    }
+    
+    /**
+     * 判断两个工单是否相似
+     * @param order1 工单1
+     * @param order2 工单2
+     * @return 是否相似
+     */
+    private boolean isSimilarOrder(WorkOrder order1, WorkOrder order2) {
+        // 1. 检查描述内容相似度
+        String desc1 = order1.getDescription();
+        String desc2 = order2.getDescription();
+        
+        // 如果描述完全相同，直接返回true
+        if (desc1.equals(desc2)) {
+            return true;
+        }
+        
+        // 计算描述内容的相似度（使用编辑距离算法）
+        double similarity = calculateTextSimilarity(desc1, desc2);
+        
+        // 如果相似度超过90%，认为是相似工单
+        return similarity >= 0.9;
+    }
+    
+    /**
+     * 计算两个文本的相似度
+     * @param text1 文本1
+     * @param text2 文本2
+     * @return 相似度（0-1之间）
+     */
+    private double calculateTextSimilarity(String text1, String text2) {
+        if (text1 == null || text2 == null) {
+            return 0.0;
+        }
+        
+        // 使用编辑距离算法计算相似度
+        int distance = calculateLevenshteinDistance(text1, text2);
+        int maxLength = Math.max(text1.length(), text2.length());
+        
+        if (maxLength == 0) {
+            return 1.0;
+        }
+        
+        return 1.0 - ((double) distance / maxLength);
+    }
+    
+    /**
+     * 计算两个字符串的编辑距离
+     * @param s1 字符串1
+     * @param s2 字符串2
+     * @return 编辑距离
+     */
+    private int calculateLevenshteinDistance(String s1, String s2) {
+        int[][] dp = new int[s1.length() + 1][s2.length() + 1];
+        
+        for (int i = 0; i <= s1.length(); i++) {
+            dp[i][0] = i;
+        }
+        
+        for (int j = 0; j <= s2.length(); j++) {
+            dp[0][j] = j;
+        }
+        
+        for (int i = 1; i <= s1.length(); i++) {
+            for (int j = 1; j <= s2.length(); j++) {
+                if (s1.charAt(i - 1) == s2.charAt(j - 1)) {
+                    dp[i][j] = dp[i - 1][j - 1];
+                } else {
+                    dp[i][j] = Math.min(dp[i - 1][j - 1], Math.min(dp[i - 1][j], dp[i][j - 1])) + 1;
+                }
+            }
+        }
+        
+        return dp[s1.length()][s2.length()];
     }
     
     /**
@@ -350,5 +423,20 @@ public class WorkOrderService {
     public List<WorkOrder> findAll() {
         logger.info("查询所有工单");
         return workOrderMapper.findAll();
+    }
+
+    /**
+     * 获取用户的工单列表（支持状态筛选）
+     * @param userOpenid 用户openid
+     * @param status 工单状态（可选，null表示全部）
+     * @return 工单列表
+     */
+    public List<WorkOrder> getUserWorkOrdersByStatus(String userOpenid, String status) {
+        logger.info("获取用户工单列表: userOpenid={}, status={}", userOpenid, status);
+        if (userOpenid == null || userOpenid.trim().isEmpty()) {
+            logger.error("获取用户工单列表失败: userOpenid为空");
+            throw new BusinessException("用户openid不能为空");
+        }
+        return workOrderMapper.findByUserOpenidAndStatus(userOpenid, status);
     }
 } 

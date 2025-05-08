@@ -52,11 +52,22 @@ public class WorkOrderController {
     /**
      * 获取用户的工单列表
      * @param userOpenid 用户openid
+     * @param status 工单状态（可选）
      * @return 工单列表
      */
-    @GetMapping("/user/{userOpenid}")
-    public Result<List<WorkOrder>> getUserWorkOrders(@PathVariable String userOpenid) {
-        return Result.success(workOrderService.findByUserOpenid(userOpenid));
+    @GetMapping("/user")
+    public Result<List<WorkOrder>> getUserWorkOrders(
+            @RequestParam String userOpenid,
+            @RequestParam(required = false) String status) {
+        logger.info("获取用户工单列表请求: userOpenid={}, status={}", userOpenid, status);
+        try {
+            List<WorkOrder> workOrders = workOrderService.getUserWorkOrdersByStatus(userOpenid, status);
+            logger.info("获取用户工单列表成功: 共{}条记录", workOrders.size());
+            return Result.success(workOrders);
+        } catch (Exception e) {
+            logger.error("获取用户工单列表失败", e);
+            return Result.error("获取工单列表失败：" + e.getMessage());
+        }
     }
     
     /**
