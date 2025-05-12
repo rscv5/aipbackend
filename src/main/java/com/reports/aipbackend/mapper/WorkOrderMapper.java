@@ -64,11 +64,16 @@ public interface WorkOrderMapper {
             "FROM work_orders " +
             "WHERE user_openid = #{userOpenid} " +
             "<if test='status != null and status != \"全部\"'>" +
-            "AND status = #{status} " +
+            "AND status IN " +
+            "<foreach collection='statusList' item='item' open='(' separator=',' close=')'>" +
+            "#{item}" +
+            "</foreach>" +
             "</if>" +
             "ORDER BY created_at DESC" +
             "</script>")
-    List<WorkOrder> findByUserOpenidAndStatus(@Param("userOpenid") String userOpenid, @Param("status") String status);
+    List<WorkOrder> findByUserOpenidAndStatus(@Param("userOpenid") String userOpenid, 
+                                            @Param("status") String status,
+                                            @Param("statusList") List<String> statusList);
 
     /**
      * 查询用户最近提交的工单

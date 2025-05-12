@@ -85,16 +85,16 @@ public class WorkOrderService {
             logger.info("工单创建成功: workId={}", workOrder.getWorkId());
             
             // 5. 创建工单处理记录
-            WorkOrderProcessing processing = new WorkOrderProcessing();
-            processing.setWorkId(workOrder.getWorkId());
-            processing.setOperatorOpenid(workOrder.getUserOpenid());
+        WorkOrderProcessing processing = new WorkOrderProcessing();
+        processing.setWorkId(workOrder.getWorkId());
+        processing.setOperatorOpenid(workOrder.getUserOpenid());
             processing.setOperatorRole("普通用户"); // 设置创建操作人角色为"普通用户"
-            processing.setActionType("提交工单");
+        processing.setActionType("提交工单");
             processing.setActionTime(LocalDateTime.now());
             processing.setActionDescription("用户提交工单");
-            processingMapper.insert(processing);
-            
-            return workOrder;
+        processingMapper.insert(processing);
+        
+        return workOrder;
         } catch (Exception e) {
             logger.error("工单创建失败", e);
             throw new BusinessException("工单创建失败：" + e.getMessage());
@@ -437,6 +437,13 @@ public class WorkOrderService {
             logger.error("获取用户工单列表失败: userOpenid为空");
             throw new BusinessException("用户openid不能为空");
         }
-        return workOrderMapper.findByUserOpenidAndStatus(userOpenid, status);
+        
+        // 处理多状态查询
+        List<String> statusList = null;
+        if (status != null && !status.equals("全部")) {
+            statusList = Arrays.asList(status.split(","));
+        }
+        
+        return workOrderMapper.findByUserOpenidAndStatus(userOpenid, status, statusList);
     }
 } 
