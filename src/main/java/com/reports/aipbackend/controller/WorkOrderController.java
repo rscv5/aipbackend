@@ -4,6 +4,7 @@ import com.reports.aipbackend.common.Result;
 import com.reports.aipbackend.entity.WorkOrder;
 import com.reports.aipbackend.entity.WorkOrderFeedback;
 import com.reports.aipbackend.entity.WorkOrderProcessing;
+import com.reports.aipbackend.entity.WorkOrderDetail;
 import com.reports.aipbackend.service.WorkOrderService;
 import com.reports.aipbackend.exception.BusinessException;
 import org.slf4j.Logger;
@@ -42,11 +43,22 @@ public class WorkOrderController {
     /**
      * 获取工单详情
      * @param workId 工单ID
-     * @return 工单详情
+     * @return 工单详情（包含处理记录和反馈信息）
      */
     @GetMapping("/{workId}")
-    public Result<WorkOrder> getWorkOrder(@PathVariable Integer workId) {
-        return Result.success(workOrderService.findById(workId));
+    public Result<WorkOrderDetail> getWorkOrder(@PathVariable Integer workId) {
+        logger.info("获取工单详情请求: workId={}", workId);
+        try {
+            WorkOrderDetail detail = workOrderService.getWorkOrderDetail(workId);
+            logger.info("获取工单详情成功: workId={}", workId);
+            return Result.success(detail);
+        } catch (BusinessException e) {
+            logger.error("获取工单详情失败: {}", e.getMessage());
+            return Result.error(e.getMessage());
+        } catch (Exception e) {
+            logger.error("获取工单详情失败", e);
+            return Result.error("系统错误，请稍后重试");
+        }
     }
     
     /**

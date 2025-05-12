@@ -3,6 +3,7 @@ package com.reports.aipbackend.service;
 import com.reports.aipbackend.entity.WorkOrder;
 import com.reports.aipbackend.entity.WorkOrderProcessing;
 import com.reports.aipbackend.entity.WorkOrderFeedback;
+import com.reports.aipbackend.entity.WorkOrderDetail;
 import com.reports.aipbackend.entity.User;
 import com.reports.aipbackend.mapper.WorkOrderMapper;
 import com.reports.aipbackend.mapper.WorkOrderProcessingMapper;
@@ -336,11 +337,6 @@ public class WorkOrderService {
         return workOrderMapper.findAll();
     }
     
-    // 获取工单详情
-    public WorkOrder getWorkOrderDetail(Integer workId) {
-        return workOrderMapper.findById(workId);
-    }
-    
     // 获取工单处理记录
     public List<WorkOrderProcessing> getWorkOrderProcessing(Integer workId) {
         return processingMapper.findByWorkId(workId);
@@ -445,5 +441,77 @@ public class WorkOrderService {
         }
         
         return workOrderMapper.findByUserOpenidAndStatus(userOpenid, status, statusList);
+    }
+
+    /**
+     * 获取工单详情（包含处理记录和反馈信息）
+     * @param workId 工单ID
+     * @return 工单详情
+     */
+    public WorkOrderDetail getWorkOrderDetail(Integer workId) {
+        logger.info("获取工单详情: workId={}", workId);
+        
+        // 1. 获取工单基本信息
+        WorkOrder workOrder = findById(workId);
+        if (workOrder == null) {
+            logger.error("获取工单详情失败: 工单不存在, workId={}", workId);
+            throw new BusinessException("工单不存在");
+        }
+        
+        // 2. 获取处理记录
+        List<WorkOrderProcessing> processingLogs = processingMapper.findByWorkId(workId);
+        
+        // 3. 获取反馈信息
+        List<WorkOrderFeedback> feedbackList = feedbackMapper.findByWorkId(workId);
+        
+        // 4. 获取用户信息
+        User submitter = userService.getUserByOpenid(workOrder.getUserOpenid());
+        User handler = workOrder.getHandledBy() != null ? 
+            userService.getUserByOpenid(workOrder.getHandledBy()) : null;
+        
+        // 5. 组装工单详情数据
+        WorkOrderDetail detail = new WorkOrderDetail();
+        // 复制工单基本信息
+        detail.setWorkId(workOrder.getWorkId());
+        detail.setUserOpenid(workOrder.getUserOpenid());
+        detail.setTitle(workOrder.getTitle());
+        detail.setDescription(workOrder.getDescription());
+        detail.setImageUrls(workOrder.getImageUrls());
+        detail.setAddress(workOrder.getAddress());
+        detail.setBuildingInfo(workOrder.getBuildingInfo());
+        detail.setStatus(workOrder.getStatus());
+        detail.setCreatedAt(workOrder.getCreatedAt());
+        detail.setUpdatedAt(workOrder.getUpdatedAt());
+        detail.setHandledBy(workOrder.getHandledBy());
+        detail.setHandledImages(workOrder.getHandledImages());
+        detail.setHandledDesc(workOrder.getHandledDesc());
+        detail.setFeedbackTime(workOrder.getFeedbackTime());
+        
+        // 设置处理记录和反馈信息
+        detail.setProcessingLogs(processingLogs);
+        detail.setFeedbackList(feedbackList);
+        
+        // 设置用户信息（如果存在）
+        if (submitter != null) {
+            detail.setSubmitterName(submitter.getUsername());
+            // 手机号脱敏处理
+            String phone = submitter.getPhoneNumber();
+            if (phone != null && phone.length() == 11) {
+                detail.setSubmitterPhone(phone.substring(0, 3) + "****" + phone.substring(7));
+            }
+        }
+        
+        // 设置处理人信息（如果存在）
+        if (handler != null) {
+            detail.setHandlerName(handler.getUsername());
+            // 手机号脱敏处理
+            String phone = handler.getPhoneNumber();
+            if (phone != null && phone.length() == 11) {
+                detail.setHandlerPhone(phone.substring(0, 3) + "****" + phone.substring(7));
+            }
+        }
+        
+        logger.info("工单详情获取成功: workId={}", workId);
+        return detail;
     }
 } 
