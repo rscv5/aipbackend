@@ -131,4 +131,12 @@ public class UserService {
         }
         return userMapper.findByOpenid(openid);
     }
+
+    /**
+     * 更新用户信息
+     * @param user 用户对象
+     */
+    public void updateUser(User user) {
+        userMapper.update(user);
+    }
 } 

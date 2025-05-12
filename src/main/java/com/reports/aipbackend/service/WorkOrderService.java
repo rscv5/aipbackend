@@ -44,21 +44,20 @@ public class WorkOrderService {
     private UserService userService;
     
     /**
-     * 创建工单
+     * 创建工单（支持同步手机号）
      * @param workOrder 工单信息
+     * @param phone 手机号
      * @return 创建的工单
      */
     @Transactional
-    public WorkOrder createWorkOrder(WorkOrder workOrder) {
-        logger.info("开始创建工单: {}", workOrder);
-        
+    public WorkOrder createWorkOrder(WorkOrder workOrder, String phone) {
+        logger.info("开始创建工单: {}，手机号: {}", workOrder, phone);
         // 1. 检查用户是否存在
         User user = userService.getUserByOpenid(workOrder.getUserOpenid());
         if (user == null) {
             logger.error("创建工单失败: 用户不存在, openid={}", workOrder.getUserOpenid());
             throw new BusinessException("用户不存在");
         }
-
         // 2. 检查是否重复提交
         // 获取用户最近1分钟内提交的工单
         List<WorkOrder> recentOrders = workOrderMapper.findRecentOrdersByUser(
@@ -74,7 +73,6 @@ public class WorkOrderService {
                 throw new BusinessException("请勿重复提交相同内容的工单，请等待1分钟后再试");
             }
         }
-
         try {
             // 3. 设置工单初始状态
             workOrder.setStatus("未领取");
@@ -83,19 +81,23 @@ public class WorkOrderService {
             
             // 4. 保存工单
             workOrderMapper.insert(workOrder);
+            // 新增：同步手机号到 user 表
+            if (phone != null && workOrder.getUserOpenid() != null) {
+                if (user.getPhoneNumber() == null || !user.getPhoneNumber().equals(phone)) {
+                    user.setPhoneNumber(phone);
+                    userService.updateUser(user);
+                }
+            }
             logger.info("工单创建成功: workId={}", workOrder.getWorkId());
-            
-            // 5. 创建工单处理记录
-        WorkOrderProcessing processing = new WorkOrderProcessing();
-        processing.setWorkId(workOrder.getWorkId());
-        processing.setOperatorOpenid(workOrder.getUserOpenid());
-            processing.setOperatorRole("普通用户"); // 设置创建操作人角色为"普通用户"
-        processing.setActionType("提交工单");
+            WorkOrderProcessing processing = new WorkOrderProcessing();
+            processing.setWorkId(workOrder.getWorkId());
+            processing.setOperatorOpenid(workOrder.getUserOpenid());
+            processing.setOperatorRole("普通用户");
+            processing.setActionType("提交工单");
             processing.setActionTime(LocalDateTime.now());
             processing.setActionDescription("用户提交工单");
-        processingMapper.insert(processing);
-        
-        return workOrder;
+            processingMapper.insert(processing);
+            return workOrder;
         } catch (Exception e) {
             logger.error("工单创建失败", e);
             throw new BusinessException("工单创建失败：" + e.getMessage());
@@ -466,15 +468,20 @@ public class WorkOrderService {
         
         // 4. 获取用户信息
         User submitter = userService.getUserByOpenid(workOrder.getUserOpenid());
+        
         User handler = workOrder.getHandledBy() != null ? 
             userService.getUserByOpenid(workOrder.getHandledBy()) : null;
+        
+        logger.info("submitter: {}", submitter);
+        
         
         // 5. 组装工单详情数据
         WorkOrderDetail detail = new WorkOrderDetail();
         // 复制工单基本信息
         detail.setWorkId(workOrder.getWorkId());
         detail.setUserOpenid(workOrder.getUserOpenid());
-        detail.setTitle(workOrder.getTitle());
+        //detail.setTitle(workOrder.getTitle());
+        
         detail.setDescription(workOrder.getDescription());
         detail.setImageUrls(workOrder.getImageUrls());
         detail.setAddress(workOrder.getAddress());
@@ -494,10 +501,13 @@ public class WorkOrderService {
         // 设置用户信息（如果存在）
         if (submitter != null) {
             detail.setSubmitterName(submitter.getUsername());
-            // 手机号脱敏处理
+            
             String phone = submitter.getPhoneNumber();
             if (phone != null && phone.length() == 11) {
-                detail.setSubmitterPhone(phone.substring(0, 3) + "****" + phone.substring(7));
+                // 手机号脱敏处理
+                //detail.setSubmitterPhone(phone.substring(0, 3) + "****" + phone.substring(7));
+                detail.setSubmitterPhone(phone);
+                logger.info("submitter phone: {}", phone);
             }
         }
         

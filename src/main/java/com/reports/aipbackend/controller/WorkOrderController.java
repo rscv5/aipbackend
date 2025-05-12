@@ -32,12 +32,22 @@ public class WorkOrderController {
     
     /**
      * 创建工单
-     * @param workOrder 工单信息
+     * @param params 工单信息和手机号
      * @return 创建结果
      */
     @PostMapping("/create")
-    public Result<WorkOrder> createWorkOrder(@RequestBody WorkOrder workOrder) {
-        return Result.success(workOrderService.createWorkOrder(workOrder));
+    public Result<WorkOrder> createWorkOrder(@RequestBody Map<String, Object> params) {
+        // 解析工单参数
+        WorkOrder workOrder = new WorkOrder();
+        workOrder.setUserOpenid((String) params.get("userOpenid"));
+        workOrder.setDescription((String) params.get("description"));
+        workOrder.setImageUrls((String) params.get("imageUrls"));
+        workOrder.setAddress((String) params.get("address"));
+        workOrder.setBuildingInfo((String) params.get("buildingInfo"));
+        workOrder.setStatus((String) params.get("status"));
+        // 解析手机号
+        String phone = (String) params.get("phone");
+        return Result.success(workOrderService.createWorkOrder(workOrder, phone));
     }
     
     /**
