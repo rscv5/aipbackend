@@ -462,7 +462,14 @@ public class WorkOrderService {
         
         // 2. 获取处理记录
         List<WorkOrderProcessing> processingLogs = processingMapper.findByWorkId(workId);
-        
+        // 统一赋值：将 actionTime 赋值给 createdAt 和 updatedAt
+        if (processingLogs != null) {
+            for (WorkOrderProcessing log : processingLogs) {
+                log.setCreatedAt(log.getActionTime());
+                log.setUpdatedAt(log.getActionTime());
+            }
+        }
+            
         // 3. 获取反馈信息
         List<WorkOrderFeedback> feedbackList = feedbackMapper.findByWorkId(workId);
         
