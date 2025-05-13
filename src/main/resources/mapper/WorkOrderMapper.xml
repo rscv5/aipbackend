@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.reports.aipbackend.mapper.WorkOrderMapper">
+
+    <resultMap id="WorkOrderResultMap" type="com.reports.aipbackend.entity.WorkOrder">
+        <id column="work_id" property="workId"/>
+        <result column="user_openid" property="userOpenid"/>
+        <result column="title" property="title"/>
+        <result column="description" property="description"/>
+        <result column="image_urls" property="imageUrls" typeHandler="com.reports.aipbackend.config.MyBatisTypeHandler"/>
+        <result column="address" property="address"/>
+        <result column="building_info" property="buildingInfo"/>
+        <result column="status" property="status"/>
+        <result column="created_at" property="createdAt"/>
+        <result column="updated_at" property="updatedAt"/>
+        <result column="handled_by" property="handledBy"/>
+        <result column="handled_images" property="handledImages" typeHandler="com.reports.aipbackend.config.MyBatisTypeHandler"/>
+        <result column="handled_desc" property="handledDesc"/>
+        <result column="feedback_time" property="feedbackTime"/>
+    </resultMap>
+
+    <select id="findById" resultMap="WorkOrderResultMap" parameterType="int">
+        SELECT * FROM work_orders WHERE work_id = #{workId}
+    </select>
+
+    <select id="findByUserOpenid" resultMap="WorkOrderResultMap" parameterType="string">
+        SELECT * FROM work_orders WHERE user_openid = #{userOpenid} ORDER BY created_at DESC
+    </select>
+
+    <select id="findByHandlerOpenid" resultMap="WorkOrderResultMap" parameterType="string">
+        SELECT * FROM work_orders WHERE handled_by = #{handledBy} ORDER BY created_at DESC
+    </select>
+
+    <select id="findByStatus" resultMap="WorkOrderResultMap" parameterType="string">
+        SELECT * FROM work_orders WHERE status = #{status} ORDER BY created_at DESC
+    </select>
+
+    <insert id="insert" parameterType="com.reports.aipbackend.entity.WorkOrder" useGeneratedKeys="true" keyProperty="workId">
+        INSERT INTO work_orders (
+            user_openid, title, description, image_urls,address, building_info, status, created_at, updated_at, handled_by, handled_images, handled_desc, feedback_time
+        ) VALUES (
+            #{userOpenid}, #{title}, #{description},
+            #{imageUrls, typeHandler=com.reports.aipbackend.config.MyBatisTypeHandler},
+            #{address}, #{buildingInfo}, #{status}, #{createdAt}, #{updatedAt}, #{handledBy},
+            #{handledImages, typeHandler=com.reports.aipbackend.config.MyBatisTypeHandler},
+            #{handledDesc}, #{feedbackTime}
+        )
+    </insert>
+
+    <update id="update" parameterType="com.reports.aipbackend.entity.WorkOrder">
+        UPDATE work_orders
+        SET
+            user_openid = #{userOpenid},
+            title = #{title},
+            description = #{description},
+            image_urls = #{imageUrls, typeHandler=com.reports.aipbackend.config.MyBatisTypeHandler},
+            address = #{address},
+            building_info = #{buildingInfo},
+            status = #{status},
+            created_at = #{createdAt},
+            updated_at = #{updatedAt},
+            handled_by = #{handledBy},
+            handled_images = #{handledImages, typeHandler=com.reports.aipbackend.config.MyBatisTypeHandler},
+            handled_desc = #{handledDesc},
+            feedback_time = #{feedbackTime}
+        WHERE work_id = #{workId}
+    </update>
+
+    <select id="findAll" resultMap="WorkOrderResultMap">
+        SELECT * FROM work_orders ORDER BY created_at DESC
+    </select>
+
+    <select id="findByUserOpenidAndStatus" resultMap="WorkOrderResultMap">
+        SELECT * FROM work_orders
+        WHERE user_openid = #{userOpenid}
+        <if test="status != null and status != '全部'">
+            AND status = #{status}
+        </if>
+        ORDER BY created_at DESC
+    </select>
+
+    <select id="findRecentOrdersByUser" resultMap="WorkOrderResultMap">
+        SELECT * FROM work_orders
+        WHERE user_openid = #{userOpenid}
+        AND created_at >= #{startTime}
+        ORDER BY created_at DESC
+    </select>
+</mapper>

@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.reports.aipbackend.mapper.WorkOrderFeedbackMapper">
+
+    <resultMap id="WorkOrderFeedbackResultMap" type="com.reports.aipbackend.entity.WorkOrderFeedback">
+        <id column="feedback_id" property="feedbackId"/>
+        <result column="work_id" property="workId"/>
+        <result column="handler_openid" property="handlerOpenid"/>
+        <result column="handler_role" property="handlerRole"/>
+        <result column="feedback_description" property="feedbackDescription"/>
+        <result column="feedback_images" property="feedbackImages" typeHandler="com.reports.aipbackend.handler.JsonStringArrayTypeHandler"/>
+        <result column="feedback_time" property="feedbackTime"/>
+    </resultMap>
+
+    <select id="findById" resultMap="WorkOrderFeedbackResultMap" parameterType="long">
+        SELECT * FROM work_order_feedback WHERE feedback_id = #{feedbackId}
+    </select>
+
+    <select id="findByWorkId" resultMap="WorkOrderFeedbackResultMap" parameterType="int">
+        SELECT * FROM work_order_feedback WHERE work_id = #{workId}
+    </select>
+
+    <select id="findByHandlerOpenid" resultMap="WorkOrderFeedbackResultMap" parameterType="string">
+        SELECT * FROM work_order_feedback WHERE handler_openid = #{handlerOpenid}
+    </select>
+
+    <insert id="insert" parameterType="com.reports.aipbackend.entity.WorkOrderFeedback" useGeneratedKeys="true" keyProperty="feedbackId">
+        INSERT INTO work_order_feedback (
+            work_id, handler_openid, handler_role, feedback_description, feedback_images, feedback_time
+        ) VALUES (
+            #{workId}, #{handlerOpenid}, #{handlerRole}, #{feedbackDescription},
+            #{feedbackImages, typeHandler=com.reports.aipbackend.handler.JsonStringArrayTypeHandler},
+            #{feedbackTime}
+        )
+    </insert>
+
+    <update id="update" parameterType="com.reports.aipbackend.entity.WorkOrderFeedback">
+        UPDATE work_order_feedback
+        SET
+            feedback_description = #{feedbackDescription},
+            feedback_images = #{feedbackImages, typeHandler=com.reports.aipbackend.handler.JsonStringArrayTypeHandler},
+            feedback_time = #{feedbackTime}
+        WHERE feedback_id = #{feedbackId}
+    </update>
+</mapper>

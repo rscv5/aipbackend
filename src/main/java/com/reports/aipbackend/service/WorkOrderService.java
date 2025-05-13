@@ -22,6 +22,7 @@ import java.util.Map;
 import java.util.HashMap;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.ArrayList;
 
 /**
  * 工单服务类
@@ -52,6 +53,7 @@ public class WorkOrderService {
     @Transactional
     public WorkOrder createWorkOrder(WorkOrder workOrder, String phone) {
         logger.info("开始创建工单: {}，手机号: {}", workOrder, phone);
+        logger.info("收到工单创建请求");
         // 1. 检查用户是否存在
         User user = userService.getUserByOpenid(workOrder.getUserOpenid());
         if (user == null) {
@@ -231,13 +233,14 @@ public class WorkOrderService {
      * @param workId 工单ID
      * @param handlerOpenid 处理人openid
      * @param handledDesc 处理描述
-     * @param handledImages 处理图片
+     * @param handledImages 处理图片URL列表
      * @return 更新后的工单
      */
     @Transactional
     public WorkOrder submitWorkOrderFeedback(Integer workId, String handlerOpenid, 
-            String handledDesc, String handledImages) {
-        logger.info("开始提交工单反馈: workId={}, handlerOpenid={}", workId, handlerOpenid);
+            String handledDesc, List<String> handledImages) {
+        logger.info("开始提交工单反馈: workId={}, handlerOpenid={}, handledImages={}", 
+            workId, handlerOpenid, handledImages);
         
         // 1. 获取工单
         WorkOrder workOrder = workOrderMapper.findById(workId);
@@ -254,7 +257,7 @@ public class WorkOrderService {
         
         // 3. 更新工单
         workOrder.setHandledDesc(handledDesc);
-        workOrder.setHandledImages(handledImages);
+        workOrder.setHandledImages(handledImages != null ? handledImages : new ArrayList<>());
         workOrder.setStatus("已解决");
         workOrder.setFeedbackTime(LocalDateTime.now());
         workOrder.setUpdatedAt(LocalDateTime.now());
@@ -379,13 +382,14 @@ public class WorkOrderService {
      * @param status 新状态
      * @param handledBy 处理人
      * @param handledDesc 处理描述
-     * @param handledImages 处理图片
+     * @param handledImages 处理图片URL列表
      * @return 更新后的工单
      */
     @Transactional
     public WorkOrder updateStatus(Integer workId, String status, String handledBy, 
-            String handledDesc, String handledImages) {
-        logger.info("更新工单状态: workId={}, status={}, handledBy={}", workId, status, handledBy);
+            String handledDesc, List<String> handledImages) {
+        logger.info("更新工单状态: workId={}, status={}, handledBy={}, handledImages={}", 
+            workId, status, handledBy, handledImages);
         
         WorkOrder workOrder = findById(workId);
         validateStatusTransition(workOrder.getStatus(), status);
@@ -393,7 +397,7 @@ public class WorkOrderService {
         workOrder.setStatus(status);
         workOrder.setHandledBy(handledBy);
         workOrder.setHandledDesc(handledDesc);
-        workOrder.setHandledImages(handledImages);
+        workOrder.setHandledImages(handledImages != null ? handledImages : new ArrayList<>());
         workOrder.setUpdatedAt(LocalDateTime.now());
         
         if ("处理完".equals(status)) {

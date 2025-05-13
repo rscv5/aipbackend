@@ -15,7 +15,7 @@ public class WorkOrderDetail {
     private String userOpenid; // 用户openid
     private String title; // 标题
     private String description; // 描述
-    private String imageUrls; // 图片URLs
+    private List<String> imageUrls; // 图片URLs
     private String address; // 地址描述
     private String buildingInfo; // 楼栋信息
     private String status; // 工单状态：未领取、处理中、已上报、处理完
@@ -24,7 +24,7 @@ public class WorkOrderDetail {
     
     // 处理信息
     private String handledBy; // 处理人
-    private String handledImages; // 处理图片URLs
+    private List<String> handledImages; // 处理图片URLs
     private String handledDesc; // 处理描述
     private LocalDateTime feedbackTime; // 反馈时间
     

@@ -14,6 +14,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -37,17 +38,81 @@ public class WorkOrderController {
      */
     @PostMapping("/create")
     public Result<WorkOrder> createWorkOrder(@RequestBody Map<String, Object> params) {
-        // 解析工单参数
-        WorkOrder workOrder = new WorkOrder();
-        workOrder.setUserOpenid((String) params.get("userOpenid"));
-        workOrder.setDescription((String) params.get("description"));
-        workOrder.setImageUrls((String) params.get("imageUrls"));
-        workOrder.setAddress((String) params.get("address"));
-        workOrder.setBuildingInfo((String) params.get("buildingInfo"));
-        workOrder.setStatus((String) params.get("status"));
-        // 解析手机号
-        String phone = (String) params.get("phone");
-        return Result.success(workOrderService.createWorkOrder(workOrder, phone));
+        logger.info("开始创建工单，接收到的参数: {}", params);
+        try {
+            // 解析工单参数
+            WorkOrder workOrder = new WorkOrder();
+            
+            // 必填字段验证
+            String userOpenid = (String) params.get("userOpenid");
+            if (userOpenid == null || userOpenid.trim().isEmpty()) {
+                logger.error("创建工单失败: userOpenid为空");
+                return Result.error("用户标识不能为空");
+            }
+            workOrder.setUserOpenid(userOpenid);
+            
+            String description = (String) params.get("description");
+            if (description == null || description.trim().isEmpty()) {
+                logger.error("创建工单失败: description为空");
+                return Result.error("问题描述不能为空");
+            }
+            workOrder.setDescription(description);
+            
+            // 处理图片URL列表
+            Object imageUrlsObj = params.get("imageUrls");
+            if (imageUrlsObj != null) {
+                try {
+                    @SuppressWarnings("unchecked")
+                    List<String> imageUrls = (List<String>) imageUrlsObj;
+                    logger.info("接收到的图片URL列表: {}", imageUrls);
+                    workOrder.setImageUrls(imageUrls);
+                } catch (ClassCastException e) {
+                    logger.error("图片URL列表格式错误: {}", e.getMessage());
+                    return Result.error("图片URL列表格式错误");
+                }
+            } else {
+                workOrder.setImageUrls(new ArrayList<>());
+            }
+            
+            // 处理地址信息
+            String address = (String) params.get("address");
+            if (address == null || address.trim().isEmpty()) {
+                logger.error("创建工单失败: address为空");
+                return Result.error("地址信息不能为空");
+            }
+            workOrder.setAddress(address);
+            
+            // 处理楼栋信息
+            String buildingInfo = (String) params.get("buildingInfo");
+            if (buildingInfo == null || buildingInfo.trim().isEmpty()) {
+                logger.error("创建工单失败: buildingInfo为空");
+                return Result.error("楼栋信息不能为空");
+            }
+            workOrder.setBuildingInfo(buildingInfo);
+            
+            // 设置工单状态
+            String status = (String) params.get("status");
+            workOrder.setStatus(status != null ? status : "未领取");
+            
+            // 解析手机号
+            String phone = (String) params.get("phone");
+            if (phone == null || phone.trim().isEmpty()) {
+                logger.error("创建工单失败: phone为空");
+                return Result.error("手机号不能为空");
+            }
+            
+            logger.info("工单参数解析完成，准备创建工单: {}", workOrder);
+            WorkOrder createdOrder = workOrderService.createWorkOrder(workOrder, phone);
+            logger.info("工单创建成功: workId={}", createdOrder.getWorkId());
+            
+            return Result.success(createdOrder);
+        } catch (BusinessException e) {
+            logger.error("创建工单业务异常: {}", e.getMessage());
+            return Result.error(e.getMessage());
+        } catch (Exception e) {
+            logger.error("创建工单系统异常", e);
+            return Result.error("系统错误，请稍后重试");
+        }
     }
     
     /**
@@ -98,7 +163,7 @@ public class WorkOrderController {
      * @param status 新状态
      * @param handledBy 处理人
      * @param handledDesc 处理描述
-     * @param handledImages 处理图片
+     * @param handledImages 处理图片URL列表
      * @return 更新结果
      */
     @PreAuthorize("hasAnyRole('GRID', 'ADMIN')")
@@ -108,8 +173,23 @@ public class WorkOrderController {
             @RequestParam String status,
             @RequestParam(required = false) String handledBy,
             @RequestParam(required = false) String handledDesc,
-            @RequestParam(required = false) String handledImages) {
-        return Result.success(workOrderService.updateStatus(workId, status, handledBy, handledDesc, handledImages));
+            @RequestParam(required = false) List<String> handledImages) {
+        logger.info("更新工单状态请求: workId={}, status={}, handledBy={}, handledImages={}", 
+            workId, status, handledBy, handledImages);
+        try {
+            WorkOrder updatedOrder = workOrderService.updateStatus(
+                workId, status, handledBy, handledDesc, 
+                handledImages != null ? handledImages : new ArrayList<>()
+            );
+            logger.info("工单状态更新成功: workId={}, status={}", workId, status);
+            return Result.success(updatedOrder);
+        } catch (BusinessException e) {
+            logger.error("更新工单状态失败: {}", e.getMessage());
+            return Result.error(e.getMessage());
+        } catch (Exception e) {
+            logger.error("更新工单状态失败", e);
+            return Result.error("系统错误，请稍后重试");
+        }
     }
     
     /**
