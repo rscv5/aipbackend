@@ -51,21 +51,33 @@ public class UserService {
                     user.setPasswordHash(encodedPassword);
                     userMapper.updatePassword(user.getUserId(), encodedPassword);
                     logger.info("Password updated to BCrypt format for user: {}", username);
-                    return user;
+                } else {
+                    logger.warn("Invalid password for user: {}", username);
+                    return null;
                 }
-                logger.warn("Invalid password for user: {}", username);
-                return null;
-            }
-            
-            // 如果是BCrypt格式，使用passwordEncoder验证
-            logger.info("Password is in BCrypt format");
-            if (!passwordEncoder.matches(password, user.getPasswordHash())) {
-                logger.warn("Invalid password for user: {}", username);
-                return null;
+            } else {
+                // 如果是BCrypt格式，使用passwordEncoder验证
+                logger.info("Password is in BCrypt format");
+                if (!passwordEncoder.matches(password, user.getPasswordHash())) {
+                    logger.warn("Invalid password for user: {}", username);
+                    return null;
+                }
             }
         } else {
             logger.warn("No password hash found for user: {}", username);
             return null;
+        }
+
+        // 登录后自动补全openid
+        if (user.getOpenid() == null || user.getOpenid().isEmpty()) {
+            String prefix = "user_";
+            if ("网格员".equals(user.getRole())) {
+                prefix = "grid_";
+            } else if ("片区长".equals(user.getRole())) {
+                prefix = "admin_";
+            }
+            user.setOpenid(prefix + user.getUsername());
+            userMapper.update(user);
         }
 
         logger.info("Login successful for user: {}", username);
@@ -109,6 +121,16 @@ public class UserService {
      */
     public User save(User user) {
         logger.info("Saving user: {}", user.getUsername());
+        // 自动生成唯一openid
+        if (user.getOpenid() == null || user.getOpenid().isEmpty()) {
+            String prefix = "user_";
+            if ("网格员".equals(user.getRole())) {
+                prefix = "grid_";
+            } else if ("片区长".equals(user.getRole())) {
+                prefix = "admin_";
+            }
+            user.setOpenid(prefix + user.getUsername());
+        }
         if (user.getUserId() == null) {
             // 新用户，设置默认密码
             user.setPasswordHash(passwordEncoder.encode("123456"));

@@ -18,6 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
@@ -323,16 +324,6 @@ public class WorkOrderService {
     }
     
     /**
-     * 获取处理人的工单列表
-     * @param handlerOpenid 处理人openid
-     * @return 工单列表
-     */
-    public List<WorkOrder> getHandlerWorkOrders(String handlerOpenid) {
-        logger.info("获取处理人工单列表: handlerOpenid={}", handlerOpenid);
-        return workOrderMapper.findByHandlerOpenid(handlerOpenid);
-    }
-    
-    /**
      * 获取指定状态的工单列表
      * @param status 状态
      * @return 工单列表
@@ -564,5 +555,94 @@ public class WorkOrderService {
         
         logger.info("工单详情获取成功: workId={}", workId);
         return detail;
+    }
+
+    /**
+     * 获取今日未领取的工单列表
+     * @return 工单列表
+     */
+    public List<WorkOrder> getTodayUnclaimedOrders() {
+        logger.info("获取今日待认领工单列表");
+        LocalDateTime startOfDay = LocalDate.now().atStartOfDay();
+        LocalDateTime endOfDay = startOfDay.plusDays(1).minusSeconds(1);
+        List<WorkOrder> orders = workOrderMapper.findByStatusAndCreatedAtBetween("未领取", startOfDay, endOfDay);
+        
+        // 为每个工单添加用户信息
+        for (WorkOrder order : orders) {
+            User user = userService.getUserByOpenid(order.getUserOpenid());
+            if (user != null) {
+                order.setPhoneNumber(user.getPhoneNumber());
+            }
+        }
+        
+        return orders;
+    }
+
+    /**
+     * 获取处理人的工单列表
+     * @param handlerOpenid 处理人openid
+     * @return 工单列表
+     */
+    public List<WorkOrder> getHandlerWorkOrders(String handlerOpenid) {
+        logger.info("获取处理人工单列表: handlerOpenid={}", handlerOpenid);
+        List<WorkOrder> orders = workOrderMapper.findByHandlerOpenid(handlerOpenid);
+        
+        // 为每个工单添加用户信息
+        for (WorkOrder order : orders) {
+            User user = userService.getUserByOpenid(order.getUserOpenid());
+            if (user != null) {
+                order.setPhoneNumber(user.getPhoneNumber());
+            }
+        }
+        
+        return orders;
+    }
+
+    /**
+     * 认领工单
+     * @param workId 工单ID
+     * @param handler 网格员用户名
+     */
+    @Transactional
+    public void claimOrder(Integer workId, String handler) {
+        logger.info("认领工单: workId={}, handlerOpenid={}", workId, handler);
+        
+        // 1. 获取工单
+        WorkOrder workOrder = workOrderMapper.findById(workId);
+        if (workOrder == null) {
+            logger.error("认领工单失败: 工单不存在, workId={}", workId);
+            throw new BusinessException("工单不存在");
+        }
+        
+        // 2. 检查工单状态
+        if (!"未领取".equals(workOrder.getStatus())) {
+            logger.error("认领工单失败: 工单状态不正确, status={}", workOrder.getStatus());
+            throw new BusinessException("只能认领未领取状态的工单");
+        }
+        
+        // 3. 更新工单状态
+        LocalDateTime now = LocalDateTime.now();
+        workOrder.setStatus("处理中");
+        workOrder.setHandledBy(handler);
+        workOrder.setUpdatedAt(now); // 更新时间即为认领时间
+        
+        try {
+            workOrderMapper.update(workOrder);
+            logger.info("工单状态更新成功: workId={}, claimTime={}", workId, now);
+            
+            // 4. 记录处理日志
+            WorkOrderProcessing processing = new WorkOrderProcessing();
+            processing.setWorkId(workId);
+            processing.setOperatorOpenid(handler);
+            processing.setOperatorRole("网格员");
+            processing.setActionType("认领工单");
+            processing.setActionDescription("网格员认领工单");
+            processing.setActionTime(now);
+            processingMapper.insert(processing);
+            
+        } catch (Exception e) {
+            logger.error("认领工单失败", e);
+            throw new BusinessException("认领工单失败：" + e.getMessage());
+        }
     }
 } 

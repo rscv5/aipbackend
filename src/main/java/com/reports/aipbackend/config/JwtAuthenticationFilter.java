@@ -70,7 +70,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                         if (userId != null) {
                             UserDetails userDetails = userDetailsService.loadUserById(userId);
                             if (userDetails != null) {
+                                logger.info("加载到的UserDetails: username={}, authorities={}", userDetails.getUsername(), userDetails.getAuthorities());
                                 setAuthentication(userDetails, request);
+                                logger.info("设置认证后，SecurityContext中的Authentication: {}，authorities: {}", 
+                                    SecurityContextHolder.getContext().getAuthentication(), 
+                                    SecurityContextHolder.getContext().getAuthentication().getAuthorities());
                                 filterChain.doFilter(request, response);
                                 return;
                             }
@@ -118,7 +122,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 userDetails, null, userDetails.getAuthorities());
         authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
         SecurityContextHolder.getContext().setAuthentication(authentication);
-        logger.info("认证信息已设置到SecurityContext");
+        logger.info("认证信息已设置到SecurityContext，用户: {}, authorities: {}", 
+            userDetails.getUsername(), 
+            userDetails.getAuthorities());
+        logger.info("SecurityContext 当前 Authentication: {}，authorities: {}", 
+            SecurityContextHolder.getContext().getAuthentication(), 
+            SecurityContextHolder.getContext().getAuthentication().getAuthorities());
     }
 
     private String getJwtFromRequest(HttpServletRequest request) {

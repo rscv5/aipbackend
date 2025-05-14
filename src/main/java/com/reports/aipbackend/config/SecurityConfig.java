@@ -4,6 +4,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -21,6 +22,7 @@ import java.util.Arrays;
  */
 @Configuration
 @EnableWebSecurity
+@EnableMethodSecurity(securedEnabled = true, jsr250Enabled = true)
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
@@ -64,20 +66,18 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder();
     }
 
+    /**
+     * 配置CORS
+     */
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOriginPatterns(Arrays.asList(
-            "http://localhost:[*]",
-            "http://127.0.0.1:[*]",
-            "https://servicewechat.com",
-            "https://*.weixin.qq.com"
-        ));
+        configuration.setAllowedOrigins(Arrays.asList("*"));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(Arrays.asList("*"));
-        configuration.setExposedHeaders(Arrays.asList("*"));
-        configuration.setMaxAge(3600L);
-
+        configuration.setExposedHeaders(Arrays.asList("Authorization"));
+        configuration.setAllowCredentials(true);
+        
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;

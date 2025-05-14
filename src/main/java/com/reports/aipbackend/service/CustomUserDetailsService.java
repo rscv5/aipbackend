@@ -81,10 +81,23 @@ public class CustomUserDetailsService implements UserDetailsService {
             password = "{noop}default_password";
         }
 
+        // 根据角色返回对应的权限
+        String role;
+        switch (user.getRole()) {
+            case "片区长":
+                role = "ROLE_ADMIN";
+                break;
+            case "网格员":
+                role = "ROLE_GRID";
+                break;
+            default:
+                role = "ROLE_USER";
+        }
+
         return new org.springframework.security.core.userdetails.User(
             username,
             password,
-            Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + user.getRole()))
+            Collections.singletonList(new SimpleGrantedAuthority(role))
         );
     }
 } 
