@@ -12,6 +12,7 @@ import com.reports.aipbackend.exception.BusinessException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,6 +24,7 @@ import java.util.HashMap;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.ArrayList;
+import java.util.stream.Collectors;
 
 /**
  * 工单服务类
@@ -43,6 +45,12 @@ public class WorkOrderService {
     
     @Autowired
     private UserService userService;
+    
+    @Value("${server.address:localhost}")
+    private String serverAddress;
+    
+    @Value("${server.port:8080}")
+    private String serverPort;
     
     /**
      * 创建工单（支持同步手机号）
@@ -466,6 +474,7 @@ public class WorkOrderService {
         
         // 2. 获取处理记录
         List<WorkOrderProcessing> processingLogs = processingMapper.findByWorkId(workId);
+        
         // 统一赋值：将 actionTime 赋值给 createdAt 和 updatedAt
         if (processingLogs != null) {
             for (WorkOrderProcessing log : processingLogs) {
@@ -479,29 +488,54 @@ public class WorkOrderService {
         
         // 4. 获取用户信息
         User submitter = userService.getUserByOpenid(workOrder.getUserOpenid());
-        
         User handler = workOrder.getHandledBy() != null ? 
             userService.getUserByOpenid(workOrder.getHandledBy()) : null;
         
         logger.info("submitter: {}", submitter);
-        
         
         // 5. 组装工单详情数据
         WorkOrderDetail detail = new WorkOrderDetail();
         // 复制工单基本信息
         detail.setWorkId(workOrder.getWorkId());
         detail.setUserOpenid(workOrder.getUserOpenid());
-        //detail.setTitle(workOrder.getTitle());
-        
         detail.setDescription(workOrder.getDescription());
-        detail.setImageUrls(workOrder.getImageUrls());
+        
+        // 处理图片URL，添加服务器地址
+        String baseUrl = "http://" + serverAddress + ":" + serverPort;
+        if (workOrder.getImageUrls() != null) {
+            List<String> fullImageUrls = workOrder.getImageUrls().stream()
+                .map(url -> {
+                    if (url.startsWith("http")) {
+                        return url;
+                    }
+                    // 确保URL以/开头
+                    String path = url.startsWith("/") ? url : "/" + url;
+                    return baseUrl + path;
+                })
+                .collect(Collectors.toList());
+            detail.setImageUrls(fullImageUrls);
+        }
+        
+        if (workOrder.getHandledImages() != null) {
+            List<String> fullHandledImageUrls = workOrder.getHandledImages().stream()
+                .map(url -> {
+                    if (url.startsWith("http")) {
+                        return url;
+                    }
+                    // 确保URL以/开头
+                    String path = url.startsWith("/") ? url : "/" + url;
+                    return baseUrl + path;
+                })
+                .collect(Collectors.toList());
+            detail.setHandledImages(fullHandledImageUrls);
+        }
+        
         detail.setAddress(workOrder.getAddress());
         detail.setBuildingInfo(workOrder.getBuildingInfo());
         detail.setStatus(workOrder.getStatus());
         detail.setCreatedAt(workOrder.getCreatedAt());
         detail.setUpdatedAt(workOrder.getUpdatedAt());
         detail.setHandledBy(workOrder.getHandledBy());
-        detail.setHandledImages(workOrder.getHandledImages());
         detail.setHandledDesc(workOrder.getHandledDesc());
         detail.setFeedbackTime(workOrder.getFeedbackTime());
         
@@ -512,11 +546,8 @@ public class WorkOrderService {
         // 设置用户信息（如果存在）
         if (submitter != null) {
             detail.setSubmitterName(submitter.getUsername());
-            
             String phone = submitter.getPhoneNumber();
             if (phone != null && phone.length() == 11) {
-                // 手机号脱敏处理
-                //detail.setSubmitterPhone(phone.substring(0, 3) + "****" + phone.substring(7));
                 detail.setSubmitterPhone(phone);
                 logger.info("submitter phone: {}", phone);
             }
@@ -525,7 +556,6 @@ public class WorkOrderService {
         // 设置处理人信息（如果存在）
         if (handler != null) {
             detail.setHandlerName(handler.getUsername());
-            // 手机号脱敏处理
             String phone = handler.getPhoneNumber();
             if (phone != null && phone.length() == 11) {
                 detail.setHandlerPhone(phone.substring(0, 3) + "****" + phone.substring(7));

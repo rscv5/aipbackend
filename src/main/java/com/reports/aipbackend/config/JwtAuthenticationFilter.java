@@ -33,7 +33,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private static final List<String> EXCLUDED_PATHS = Arrays.asList(
         "/api/grid/login",
         "/api/user/login",
-        "/api/area/login"
+        "/api/area/login",
+        "/img_test/"
     );
     
     public JwtAuthenticationFilter(JwtUtils jwtUtils, CustomUserDetailsService userDetailsService) {
