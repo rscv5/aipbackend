@@ -238,61 +238,6 @@ public class WorkOrderService {
     }
     
     /**
-     * 提交工单处理反馈
-     * @param workId 工单ID
-     * @param handlerOpenid 处理人openid
-     * @param handledDesc 处理描述
-     * @param handledImages 处理图片URL列表
-     * @return 更新后的工单
-     */
-    @Transactional
-    public WorkOrder submitWorkOrderFeedback(Integer workId, String handlerOpenid, 
-            String handledDesc, List<String> handledImages) {
-        logger.info("开始提交工单反馈: workId={}, handlerOpenid={}, handledImages={}", 
-            workId, handlerOpenid, handledImages);
-        
-        // 1. 获取工单
-        WorkOrder workOrder = workOrderMapper.findById(workId);
-        if (workOrder == null) {
-            logger.error("提交工单反馈失败: 工单不存在, workId={}", workId);
-            throw new BusinessException("工单不存在");
-        }
-        
-        // 2. 验证工单状态
-        if (!"处理中".equals(workOrder.getStatus())) {
-            logger.error("提交工单反馈失败: 工单状态不正确, status={}", workOrder.getStatus());
-            throw new BusinessException("只有处理中的工单才能提交反馈");
-        }
-        
-        // 3. 更新工单
-        workOrder.setHandledDesc(handledDesc);
-        workOrder.setHandledImages(handledImages != null ? handledImages : new ArrayList<>());
-        workOrder.setStatus("已解决");
-        workOrder.setFeedbackTime(LocalDateTime.now());
-        workOrder.setUpdatedAt(LocalDateTime.now());
-        
-        try {
-            workOrderMapper.update(workOrder);
-            logger.info("工单反馈提交成功: workId={}", workId);
-            
-            // 记录处理日志
-            WorkOrderProcessing processing = new WorkOrderProcessing();
-            processing.setWorkId(workId);
-            processing.setOperatorOpenid(handlerOpenid);
-            processing.setOperatorRole("处理人");
-            processing.setActionType("提交反馈");
-            processing.setActionDescription("处理人提交反馈");
-            processing.setActionTime(LocalDateTime.now());
-            processingMapper.insert(processing);
-            
-            return workOrder;
-        } catch (Exception e) {
-            logger.error("工单反馈提交失败", e);
-            throw new BusinessException("工单反馈提交失败：" + e.getMessage());
-        }
-    }
-    
-    /**
      * 验证状态转换是否合法
      * @param oldStatus 原状态
      * @param newStatus 新状态
@@ -644,5 +589,52 @@ public class WorkOrderService {
             logger.error("认领工单失败", e);
             throw new BusinessException("认领工单失败：" + e.getMessage());
         }
+    }
+
+    /**
+     * 网格员提交工单反馈
+     * @param workId 工单ID
+     * @param handlerOpenid 处理人openid
+     * @param handledDesc 处理说明
+     * @param handledImages 处理图片URLs
+     * @return 更新后的工单
+     */
+    @Transactional
+    public WorkOrder submitWorkOrderFeedback(Integer workId, String handlerOpenid, String handledDesc, List<String> handledImages) {
+        WorkOrder workOrder = findById(workId);
+        if (workOrder == null) {
+            throw new BusinessException("工单不存在");
+        }
+        if (!handlerOpenid.equals(workOrder.getHandledBy())) {
+            throw new BusinessException("只有认领该工单的网格员才能提交反馈");
+        }
+        // 更新工单状态为"处理完"
+        workOrder.setStatus("处理完");
+        workOrder.setHandledDesc(handledDesc);
+        workOrder.setHandledImages(handledImages);
+        workOrder.setFeedbackTime(LocalDateTime.now());
+        workOrderMapper.update(workOrder);
+
+        // 插入处理日志
+        WorkOrderProcessing processing = new WorkOrderProcessing();
+        processing.setWorkId(workId);
+        processing.setOperatorOpenid(handlerOpenid);
+        processing.setOperatorRole("网格员");
+        processing.setActionType("反馈处理");
+        processing.setActionDescription("网格员提交反馈");
+        processing.setActionTime(LocalDateTime.now());
+        processingMapper.insert(processing);
+
+        // 插入反馈记录
+        WorkOrderFeedback feedback = new WorkOrderFeedback();
+        feedback.setWorkId(workId);
+        feedback.setHandlerOpenid(handlerOpenid);
+        feedback.setHandlerRole("网格员");
+        feedback.setFeedbackDescription(handledDesc);
+        feedback.setFeedbackImages(handledImages);
+        feedback.setFeedbackTime(LocalDateTime.now());
+        feedbackMapper.insert(feedback);
+
+        return workOrder;
     }
 } 

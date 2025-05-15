@@ -1,17 +1,27 @@
 package com.reports.aipbackend.exception;
 
-import lombok.Getter;
-
-@Getter
+/**
+ * 业务异常类
+ */
 public class BusinessException extends RuntimeException {
-    private final int code;
-
-    public BusinessException(int code, String message) {
+    
+    private Integer code;
+    
+    public BusinessException(String message) {
+        super(message);
+        this.code = 500;
+    }
+    
+    public BusinessException(Integer code, String message) {
         super(message);
         this.code = code;
     }
-
-    public BusinessException(String message) {
-        this(400, message);
+    
+    public Integer getCode() {
+        return code;
+    }
+    
+    public void setCode(Integer code) {
+        this.code = code;
     }
 } 
