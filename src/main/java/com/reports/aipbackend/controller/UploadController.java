@@ -35,11 +35,21 @@ public class UploadController {
     /**
      * 图片上传接口
      * @param file 前端上传的图片文件
+     * @param type 图片类型，可选
+     * @param form 表单数据
      * @return 图片的访问路径
      */
     @PostMapping("/upload")
-    public ResponseEntity<?> uploadImage(@RequestParam("file") MultipartFile file) {
-        logger.info("收到图片上传请求: 文件名={}, 大小={} bytes", file.getOriginalFilename(), file.getSize());
+    public ResponseEntity<?> uploadImage(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(value = "type", required = false) String type,
+            @RequestParam Map<String, String> form) {
+        // 兼容：优先用单独type参数，没有则用form.get("type")
+        if ((type == null || type.isEmpty()) && form != null) {
+            type = form.get("type");
+        }
+        logger.info("收到图片上传请求: 文件名={}, 大小={} bytes, type={}, form={}", 
+            file.getOriginalFilename(), file.getSize(), type, form);
         
         if (file.isEmpty()) {
             logger.warn("上传失败：文件为空");
@@ -54,8 +64,12 @@ public class UploadController {
         }
         
         try {
-            // 确保目录存在
-            Path uploadDir = Paths.get(uploadPath);
+            // 支持 type 子目录
+            Path uploadDir = (type != null && !type.isEmpty())
+                    ? Paths.get(uploadPath, type)
+                    : Paths.get(uploadPath);
+            logger.info("准备保存到目录: {}", uploadDir);
+            
             if (!Files.exists(uploadDir)) {
                 Files.createDirectories(uploadDir);
                 logger.info("创建上传目录: {}", uploadDir);
@@ -66,13 +80,14 @@ public class UploadController {
             String extension = originalFilename.substring(originalFilename.lastIndexOf('.'));
             String filename = UUID.randomUUID().toString().replace("-", "") + extension;
             Path filePath = uploadDir.resolve(filename);
+            logger.info("准备保存文件: {}", filePath);
 
             // 保存文件
             Files.copy(file.getInputStream(), filePath);
             logger.info("图片保存成功: {}", filePath);
 
             // 返回图片的访问路径
-            String imageUrl = urlPrefix + "/" + filename;
+            String imageUrl = urlPrefix + (type != null && !type.isEmpty() ? ("/" + type) : "") + "/" + filename;
             Map<String, Object> result = new HashMap<>();
             result.put("url", imageUrl);
             result.put("filename", filename);
