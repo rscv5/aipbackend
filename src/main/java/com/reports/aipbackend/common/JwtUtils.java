@@ -8,10 +8,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 
 import com.reports.aipbackend.entity.User;
 
 import javax.crypto.SecretKey;
+import jakarta.servlet.http.HttpServletRequest;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
 import java.util.HashMap;
@@ -127,8 +130,45 @@ public class JwtUtils {
             throw e;
         }
     }
+
     // 生成token
     public String generateToken(User user) {
         return generateToken(user.getUsername(), user.getRole(), user.getUserId());
+    }
+
+    // ====== 你需要添加的内容 ======
+    /**
+     * 从请求中获取token
+     * @return token字符串
+     */
+    private String getTokenFromRequest() {
+        ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+        if (attributes == null) {
+            throw new RuntimeException("无法获取当前请求");
+        }
+        HttpServletRequest request = attributes.getRequest();
+        String bearerToken = request.getHeader("Authorization");
+        if (bearerToken != null && bearerToken.startsWith("Bearer ")) {
+            return bearerToken.substring(7);
+        }
+        throw new RuntimeException("未找到认证信息");
+    }
+
+    /**
+     * 从JWT中获取用户ID
+     * @return 用户ID
+     */
+    public Integer getUserIdFromToken() {
+        String token = getTokenFromRequest();
+        Map<String, Object> claims = parseToken(token);
+        Object userIdObj = claims.get("userId");
+        if (userIdObj instanceof Integer) {
+            return (Integer) userIdObj;
+        } else if (userIdObj instanceof Number) {
+            return ((Number) userIdObj).intValue();
+        } else if (userIdObj != null) {
+            return Integer.parseInt(userIdObj.toString());
+        }
+        throw new RuntimeException("token中未包含userId");
     }
 }

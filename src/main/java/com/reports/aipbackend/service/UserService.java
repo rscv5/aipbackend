@@ -8,6 +8,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
+
 /**
  * 用户服务类
  * 处理用户相关的业务逻辑
@@ -160,5 +162,15 @@ public class UserService {
      */
     public void updateUser(User user) {
         userMapper.update(user);
+    }
+
+    /**
+     * 根据角色获取用户列表
+     * @param role 用户角色
+     * @return 用户列表
+     */
+    public List<User> getUsersByRole(String role) {
+        logger.info("根据角色查询用户列表: role={}", role);
+        return userMapper.findByRole(role);
     }
 } 

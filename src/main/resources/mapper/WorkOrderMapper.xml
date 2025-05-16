@@ -87,11 +87,11 @@
     </select>
 
     <!-- 查询今日未领取的工单 -->
-    <select id="findTodayUnclaimedOrders" resultMap="WorkOrderResultMap">
+    <select id="findTodayUnclaimedOrders" resultType="com.reports.aipbackend.entity.WorkOrder">
         SELECT *
         FROM work_orders
-        WHERE status = '未领取'
-        AND DATE(created_at) = CURDATE()
+        WHERE DATE(created_at) = CURDATE()
+        AND status = '未领取'
         ORDER BY created_at DESC
     </select>
 
@@ -109,6 +109,13 @@
         SELECT *
         FROM work_orders
         WHERE handled_by = #{handler}
+        ORDER BY created_at DESC
+    </select>
+
+    <!-- 查询所有未领取、已上报、处理中状态的工单 -->
+    <select id="findReportedAndUnclaimedAndProcessing" resultMap="WorkOrderResultMap">
+        SELECT * FROM work_orders
+        WHERE status IN ('未领取', '已上报', '处理中')
         ORDER BY created_at DESC
     </select>
 </mapper>

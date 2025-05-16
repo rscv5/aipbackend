@@ -46,4 +46,8 @@
         UPDATE users SET password_hash = #{passwordHash} WHERE user_id = #{userId}
     </update>
 
+    <select id="findByRole" resultMap="BaseResultMap">
+        SELECT * FROM users WHERE role = #{role}
+    </select>
+
 </mapper> 

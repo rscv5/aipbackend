@@ -3,6 +3,7 @@ package com.reports.aipbackend.mapper;
 import com.reports.aipbackend.entity.WorkOrder;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Update;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -53,4 +54,30 @@ public interface WorkOrderMapper {
      * @return 工单列表
      */
     List<WorkOrder> findByHandler(String handler);
+
+    /**
+     * 更新工单状态和处理人
+     * @param workId 工单ID
+     * @param status 状态
+     * @param handledBy 处理人openid
+     */
+    @Update("UPDATE work_orders SET status = #{status}, handled_by = #{handledBy}, updated_at = NOW() WHERE work_id = #{workId}")
+    void updateStatus(@Param("workId") Integer workId,
+                     @Param("status") String status,
+                     @Param("handledBy") String handledBy);
+
+    /**
+     * 更新工单截止时间
+     * @param workId 工单ID
+     * @param deadline 截止时间
+     */
+    @Update("UPDATE work_orders SET deadline = #{deadline}, updated_at = NOW() " +
+            "WHERE work_id = #{workId}")
+    void updateDeadline(@Param("workId") Integer workId,
+                       @Param("deadline") LocalDateTime deadline);
+
+    /**
+     * 查询所有未领取、已上报、处理中状态的工单
+     */
+    List<WorkOrder> findReportedAndUnclaimedAndProcessing();
 } 

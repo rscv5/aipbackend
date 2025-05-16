@@ -21,5 +21,6 @@ public class WorkOrder {
     private List<String> handledImages; // 处理图片URLs
     private String handledDesc; // 处理描述
     private LocalDateTime feedbackTime; // 反馈时间
+    private LocalDateTime deadline;
     private String phoneNumber; // 添加联系电话字段
 } 

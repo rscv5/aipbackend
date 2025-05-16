@@ -503,15 +503,14 @@ public class WorkOrderService {
     }
 
     /**
-     * 获取今日未领取的工单列表
+     * 获取过去24小时未领取的工单列表
      * @return 工单列表
      */
     public List<WorkOrder> getTodayUnclaimedOrders() {
-        logger.info("获取今日待认领工单列表");
-        LocalDateTime startOfDay = LocalDate.now().atStartOfDay();
-        LocalDateTime endOfDay = startOfDay.plusDays(1).minusSeconds(1);
-        List<WorkOrder> orders = workOrderMapper.findByStatusAndCreatedAtBetween("未领取", startOfDay, endOfDay);
-        
+        logger.info("获取过去24小时未领取工单列表");
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime startTime = now.minusHours(24);
+        List<WorkOrder> orders = workOrderMapper.findByStatusAndCreatedAtBetween("未领取", startTime, now);
         // 为每个工单添加用户信息
         for (WorkOrder order : orders) {
             User user = userService.getUserByOpenid(order.getUserOpenid());
@@ -519,7 +518,6 @@ public class WorkOrderService {
                 order.setPhoneNumber(user.getPhoneNumber());
             }
         }
-        
         return orders;
     }
 
@@ -636,5 +634,68 @@ public class WorkOrderService {
         feedbackMapper.insert(feedback);
 
         return workOrder;
+    }
+
+    /**
+     * 获取片区长管理的工单列表
+     * @param captainId 片区长ID
+     * @param type 工单类型：all-全部，today-今日提交，processing-处理中，reported-已上报，completed-处理完
+     * @return 工单列表
+     */
+    public List<WorkOrder> getCaptainWorkOrders(Integer captainId, String type) {
+        switch (type) {
+            case "today":
+                // 获取今日提交的工单
+                return workOrderMapper.findTodayUnclaimedOrders();
+            case "processing":
+                // 获取处理中的工单
+                return workOrderMapper.findByStatus("处理中");
+            case "reported":
+                // 获取全部上报工单（未领取、已上报、处理中）
+                return workOrderMapper.findReportedAndUnclaimedAndProcessing();
+            case "completed":
+                // 获取已完成的工单
+                return workOrderMapper.findByStatus("处理完");
+            default:
+                // 获取所有工单
+                return workOrderMapper.findAll();
+        }
+    }
+
+    /**
+     * 重新分配工单
+     * @param workId 工单ID
+     * @param gridWorkerOpenid 网格员openid
+     * @param deadline 截止时间
+     */
+    public void reassignWorkOrder(Integer workId, String gridWorkerOpenid, String deadline) {
+        // 获取工单
+        WorkOrder workOrder = workOrderMapper.findById(workId);
+        if (workOrder == null) {
+            throw new RuntimeException("工单不存在");
+        }
+
+        // 验证工单状态
+        if (!"已上报".equals(workOrder.getStatus()) && !"未领取".equals(workOrder.getStatus())) {
+            throw new RuntimeException("只能重新分配未领取或已上报状态的工单");
+        }
+
+        // 设置截止时间（如果未指定，默认为24小时后）
+        LocalDateTime deadlineTime;
+        if (deadline != null && !deadline.isEmpty()) {
+            if (deadline.length() == 10) {
+                // yyyy-MM-dd -> 补全为 00:00:00
+                deadlineTime = LocalDate.parse(deadline).atStartOfDay();
+            } else {
+                // 其它格式直接尝试 LocalDateTime 解析
+                deadlineTime = LocalDateTime.parse(deadline);
+            }
+        } else {
+            deadlineTime = LocalDateTime.now().plusHours(24);
+        }
+
+        // 更新工单状态和处理人
+        workOrderMapper.updateStatus(workId, "处理中", gridWorkerOpenid);
+        workOrderMapper.updateDeadline(workId, deadlineTime);
     }
 } 

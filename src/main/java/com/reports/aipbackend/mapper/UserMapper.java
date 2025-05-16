@@ -4,6 +4,8 @@ import com.reports.aipbackend.entity.User;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
+import java.util.List;
+
 /**
  * 用户数据访问接口
  */
@@ -58,4 +60,11 @@ public interface UserMapper {
      * @return 用户信息
      */
     User findById(Integer userId);
+
+    /**
+     * 根据角色查找用户
+     * @param role 用户角色
+     * @return 用户列表
+     */
+    List<User> findByRole(String role);
 } 
