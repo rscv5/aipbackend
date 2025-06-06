@@ -56,6 +56,13 @@ public interface WorkOrderMapper {
     List<WorkOrder> findByHandler(String handler);
 
     /**
+     * 查询处理人之前处理过但被重新分配的工单
+     * @param handlerOpenid 处理人openid
+     * @return 工单列表
+     */
+    List<WorkOrder> findPreviouslyHandledOrders(@Param("handlerOpenid") String handlerOpenid);
+
+    /**
      * 更新工单状态和处理人
      * @param workId 工单ID
      * @param status 状态
@@ -80,4 +87,25 @@ public interface WorkOrderMapper {
      * 查询所有未领取、已上报、处理中状态的工单
      */
     List<WorkOrder> findReportedAndUnclaimedAndProcessing();
+
+    /**
+     * 查询当天创建但未认领的工单
+     * @param endOfToday 当天结束时间
+     * @return 工单列表
+     */
+    List<WorkOrder> findUnclaimedTimeoutOrdersToday(@Param("endOfToday") LocalDateTime endOfToday);
+
+    /**
+     * 查询认领后超时未完成的工单（无截止时间）
+     * @param timeoutThreshold 超时阈值时间
+     * @return 工单列表
+     */
+    List<WorkOrder> findProcessingTimeoutOrdersWithoutDeadline(@Param("timeoutThreshold") LocalDateTime timeoutThreshold);
+
+    /**
+     * 查询有截止时间但超期未完成的工单
+     * @param currentTime 当前时间
+     * @return 工单列表
+     */
+    List<WorkOrder> findDeadlineTimeoutOrders(@Param("currentTime") LocalDateTime currentTime);
 } 

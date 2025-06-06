@@ -5,8 +5,10 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.List;
 
 @Data
 public class User implements UserDetails {
@@ -16,6 +18,8 @@ public class User implements UserDetails {
     private String passwordHash;
     private String role;
     private String phoneNumber;
+    private Boolean isSuperAdmin;
+    private Boolean isDeleted;
 
     /**
      * 获取用户权限列表
@@ -24,15 +28,24 @@ public class User implements UserDetails {
      */
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
+        List<GrantedAuthority> authorities = new ArrayList<>();
+        
         // 根据角色返回对应的权限
         switch (role) {
             case "片区长":
-                return Collections.singletonList(new SimpleGrantedAuthority("ROLE_ADMIN"));
+                authorities.add(new SimpleGrantedAuthority("ROLE_ADMIN"));
+                // 如果是超级管理员，添加额外权限
+                if (Boolean.TRUE.equals(isSuperAdmin)) {
+                    authorities.add(new SimpleGrantedAuthority("ROLE_SUPER_ADMIN"));
+                }
+                break;
             case "网格员":
-                return Collections.singletonList(new SimpleGrantedAuthority("ROLE_GRID"));
+                authorities.add(new SimpleGrantedAuthority("ROLE_GRID"));
+                break;
             default:
-                return Collections.singletonList(new SimpleGrantedAuthority("ROLE_USER"));
+                authorities.add(new SimpleGrantedAuthority("ROLE_USER"));
         }
+        return authorities;
     }
 
     @Override

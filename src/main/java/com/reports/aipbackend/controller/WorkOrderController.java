@@ -138,16 +138,20 @@ public class WorkOrderController {
     
     /**
      * 获取用户的工单列表
-     * @param userOpenid 用户openid
      * @param status 工单状态（可选）
      * @return 工单列表
      */
     @GetMapping("/user")
     public Result<List<WorkOrder>> getUserWorkOrders(
-            @RequestParam String userOpenid,
             @RequestParam(required = false) String status) {
-        logger.info("获取用户工单列表请求: userOpenid={}, status={}", userOpenid, status);
+        logger.info("获取用户工单列表请求: status={}", status);
         try {
+            // 从SecurityContext中获取当前用户信息
+            org.springframework.security.core.Authentication authentication = 
+                org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+            String userOpenid = authentication.getName();
+            
+            logger.info("从token中获取到的用户openid: {}", userOpenid);
             List<WorkOrder> workOrders = workOrderService.getUserWorkOrdersByStatus(userOpenid, status);
             logger.info("获取用户工单列表成功: 共{}条记录", workOrders.size());
             return Result.success(workOrders);
@@ -252,5 +256,20 @@ public class WorkOrderController {
     @GetMapping("/{workId}/feedback")
     public Result<List<WorkOrderFeedback>> getWorkOrderFeedback(@PathVariable Integer workId) {
         return Result.success(workOrderService.getWorkOrderFeedback(workId));
+    }
+
+    // 临时接口：手动触发超时工单检查 (仅用于测试)
+    @GetMapping("/trigger-timeout-check")
+    public Result<String> triggerTimeoutCheck() {
+        logger.info("手动触发超时工单检查");
+        try {
+            workOrderService.reportUnclaimedTimeoutOrders();
+            workOrderService.reportProcessingTimeoutOrders();
+            workOrderService.reportDeadlineTimeoutOrders();
+            return Result.success("超时工单检查已触发");
+        } catch (Exception e) {
+            logger.error("手动触发超时工单检查失败", e);
+            return Result.error("触发失败: " + e.getMessage());
+        }
     }
 } 

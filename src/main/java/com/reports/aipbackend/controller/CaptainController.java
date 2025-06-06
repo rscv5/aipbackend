@@ -4,6 +4,10 @@ import com.reports.aipbackend.common.JwtUtils;
 import com.reports.aipbackend.entity.WorkOrder;
 import com.reports.aipbackend.service.WorkOrderService;
 import com.reports.aipbackend.service.UserService;
+import com.reports.aipbackend.entity.User;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
 
 import org.apache.ibatis.jdbc.Null;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -82,7 +86,28 @@ public class CaptainController {
                 ));
             }
 
-            workOrderService.reassignWorkOrder(workId, gridWorkerOpenid, deadlineStr);
+            // 获取当前片区长的openid
+            String captainOpenid = null;
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            if (authentication != null && authentication.getPrincipal() instanceof UserDetails) {
+                UserDetails userDetails = (UserDetails) authentication.getPrincipal();
+                // 假设 UserDetails 的getUsername()返回的是用户名，需要根据用户名查询用户获取openid
+                // 或者你的 UserDetails 实现直接包含了 openid
+                // 这里假设 UserDetails 的 username 就是 openid
+                User currentUser = userService.findByUsername(userDetails.getUsername());
+                if (currentUser != null) {
+                    captainOpenid = currentUser.getOpenid();
+                }
+            }
+
+            if (captainOpenid == null) {
+                 return ResponseEntity.status(401).body(Map.of(
+                    "code", 401,
+                    "message", "无法获取片区长信息或未登录"
+                 ));
+            }
+
+            workOrderService.reassignWorkOrder(workId, gridWorkerOpenid, deadlineStr, captainOpenid);
             return ResponseEntity.ok(Map.of(
                 "code", 200,
                 "message", "重新分配成功"

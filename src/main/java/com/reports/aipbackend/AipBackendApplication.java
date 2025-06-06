@@ -6,8 +6,10 @@ import org.springframework.context.annotation.ComponentScan;
 import org.mybatis.spring.annotation.MapperScan;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 @SpringBootApplication
+@EnableScheduling
 @ComponentScan(basePackages = "com.reports.aipbackend")
 @MapperScan("com.reports.aipbackend.mapper")
 public class AipBackendApplication {

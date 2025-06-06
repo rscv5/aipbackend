@@ -133,7 +133,18 @@ public class JwtUtils {
 
     // 生成token
     public String generateToken(User user) {
-        return generateToken(user.getUsername(), user.getRole(), user.getUserId());
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("userId", user.getUserId());
+        claims.put("role", user.getRole());
+        claims.put("isSuperAdmin", user.getIsSuperAdmin());
+        claims.put("sub", user.getUsername());
+
+        return Jwts.builder()
+                .setClaims(claims)
+                .setIssuedAt(new Date())
+                .setExpiration(new Date(System.currentTimeMillis() + 86400000)) // 24小时有效期
+                .signWith(getSigningKey(), SignatureAlgorithm.HS512)
+                .compact();
     }
 
     // ====== 你需要添加的内容 ======

@@ -73,8 +73,14 @@
     <select id="findByUserOpenidAndStatus" resultMap="WorkOrderResultMap">
         SELECT * FROM work_orders
         WHERE user_openid = #{userOpenid}
-        <if test="status != null and status != '全部'">
-            AND status = #{status}
+        <if test="statusList != null and statusList.size > 0">
+            AND status IN
+            <foreach item="item" collection="statusList" open="(" separator="," close=")">
+                #{item}
+            </foreach>
+        </if>
+        <if test="status != null and status == '全部'">
+            <!-- If status is '全部', no additional status filtering is needed -->
         </if>
         ORDER BY created_at DESC
     </select>
@@ -117,5 +123,44 @@
         SELECT * FROM work_orders
         WHERE status IN ('未领取', '已上报', '处理中')
         ORDER BY created_at DESC
+    </select>
+
+    <!-- 查询处理人之前处理过但被重新分配的工单 -->
+    <select id="findPreviouslyHandledOrders" resultMap="WorkOrderResultMap">
+        SELECT wo.* 
+        FROM work_orders wo
+        INNER JOIN work_order_processing wop ON wo.work_id = wop.work_id
+        WHERE wop.operator_openid = #{handlerOpenid}
+        AND wop.action_type IN ('认领工单', '开始处理')
+        AND wo.handled_by != #{handlerOpenid}
+        AND wo.status = '处理中'
+        ORDER BY wo.updated_at DESC
+    </select>
+
+    <!-- 查询当天创建但未认领的工单 -->
+    <select id="findUnclaimedTimeoutOrdersToday" resultMap="WorkOrderResultMap">
+        SELECT * FROM work_orders
+        WHERE status = '未领取'
+        AND created_at &lt;= #{endOfToday}
+        ORDER BY created_at DESC
+    </select>
+
+    <!-- 查询认领后超时未完成的工单（无截止时间） -->
+    <select id="findProcessingTimeoutOrdersWithoutDeadline" resultMap="WorkOrderResultMap">
+        SELECT * FROM work_orders
+        WHERE status = '处理中'
+        AND handled_by IS NOT NULL
+        AND deadline IS NULL
+        AND updated_at &lt;= #{timeoutThreshold}
+        ORDER BY updated_at DESC
+    </select>
+
+    <!-- 查询有截止时间但超期未完成的工单 -->
+    <select id="findDeadlineTimeoutOrders" resultMap="WorkOrderResultMap">
+        SELECT * FROM work_orders
+        WHERE status IN ('处理中', '未领取') -- 超期工单可能是处理中或未领取状态
+        AND deadline IS NOT NULL
+        AND deadline &lt;= #{currentTime}
+        ORDER BY deadline ASC
     </select>
 </mapper>

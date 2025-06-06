@@ -5,6 +5,8 @@ import com.reports.aipbackend.entity.User;
 import com.reports.aipbackend.service.WorkOrderService;
 import com.reports.aipbackend.service.UserService;
 import com.reports.aipbackend.common.JwtUtils;
+import com.reports.aipbackend.entity.WorkOrderProcessing;
+import com.reports.aipbackend.mapper.WorkOrderProcessingMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,6 +16,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
+import java.time.LocalDateTime;
 
 @RestController
 @RequestMapping("/api/gridworker")
@@ -28,6 +31,9 @@ public class GridWorkerController {
 
     @Autowired
     private JwtUtils jwtUtils;
+
+    @Autowired
+    private WorkOrderProcessingMapper processingMapper;
 
     @GetMapping("/orders")
     public ResponseEntity<?> getOrders(
@@ -49,6 +55,12 @@ public class GridWorkerController {
                 orders = workOrderService.getTodayUnclaimedOrders();
             } else if ("my".equals(type)) {
                 orders = workOrderService.getHandlerWorkOrders(openid);
+            } else if ("processing".equals(type)) {
+                orders = workOrderService.findByStatus("处理中");
+            } else if ("reported".equals(type)) {
+                orders = workOrderService.findByStatus("已上报");
+            } else if ("completed".equals(type)) {
+                orders = workOrderService.findByStatus("处理完");
             } else {
                 Map<String, Object> resp = new HashMap<>();
                 resp.put("code", 400);
@@ -205,6 +217,17 @@ public class GridWorkerController {
                 return ResponseEntity.badRequest().body(resp);
             }
             workOrderService.updateStatus(workId, "已上报", openid, null, null);
+
+            // 记录主动上报日志
+            WorkOrderProcessing processing = new WorkOrderProcessing();
+            processing.setWorkId(workId);
+            processing.setOperatorOpenid(openid);
+            processing.setOperatorRole("网格员");
+            processing.setActionType("主动上报");
+            processing.setActionDescription("网格员主动上报工单给片区长");
+            processing.setActionTime(LocalDateTime.now());
+            processingMapper.insert(processing);
+
             Map<String, Object> resp = new HashMap<>();
             resp.put("code", 200);
             resp.put("msg", "上报片区长成功");

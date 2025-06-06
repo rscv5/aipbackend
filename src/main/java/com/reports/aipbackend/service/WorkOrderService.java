@@ -528,17 +528,26 @@ public class WorkOrderService {
      */
     public List<WorkOrder> getHandlerWorkOrders(String handlerOpenid) {
         logger.info("获取处理人工单列表: handlerOpenid={}", handlerOpenid);
-        List<WorkOrder> orders = workOrderMapper.findByHandlerOpenid(handlerOpenid);
+        // 获取当前处理人的工单
+        List<WorkOrder> currentOrders = workOrderMapper.findByHandlerOpenid(handlerOpenid);
+        
+        // 获取处理人之前处理过但被重新分配的工单
+        List<WorkOrder> previousOrders = workOrderMapper.findPreviouslyHandledOrders(handlerOpenid);
+        
+        // 合并两个列表
+        List<WorkOrder> allOrders = new ArrayList<>();
+        allOrders.addAll(currentOrders);
+        allOrders.addAll(previousOrders);
         
         // 为每个工单添加用户信息
-        for (WorkOrder order : orders) {
+        for (WorkOrder order : allOrders) {
             User user = userService.getUserByOpenid(order.getUserOpenid());
             if (user != null) {
                 order.setPhoneNumber(user.getPhoneNumber());
             }
         }
         
-        return orders;
+        return allOrders;
     }
 
     /**
@@ -667,8 +676,9 @@ public class WorkOrderService {
      * @param workId 工单ID
      * @param gridWorkerOpenid 网格员openid
      * @param deadline 截止时间
+     * @param captainOpenid 片区长openid
      */
-    public void reassignWorkOrder(Integer workId, String gridWorkerOpenid, String deadline) {
+    public void reassignWorkOrder(Integer workId, String gridWorkerOpenid, String deadline, String captainOpenid) {
         // 获取工单
         WorkOrder workOrder = workOrderMapper.findById(workId);
         if (workOrder == null) {
@@ -684,8 +694,8 @@ public class WorkOrderService {
         LocalDateTime deadlineTime;
         if (deadline != null && !deadline.isEmpty()) {
             if (deadline.length() == 10) {
-                // yyyy-MM-dd -> 补全为 00:00:00
-                deadlineTime = LocalDate.parse(deadline).atStartOfDay();
+                // yyyy-MM-dd -> 补全为 当天结束的最后一秒 (23:59:59)
+                deadlineTime = LocalDate.parse(deadline).plusDays(1).atStartOfDay().minusSeconds(1);
             } else {
                 // 其它格式直接尝试 LocalDateTime 解析
                 deadlineTime = LocalDateTime.parse(deadline);
@@ -697,5 +707,122 @@ public class WorkOrderService {
         // 更新工单状态和处理人
         workOrderMapper.updateStatus(workId, "处理中", gridWorkerOpenid);
         workOrderMapper.updateDeadline(workId, deadlineTime);
+
+        // 记录重新分配日志
+        WorkOrderProcessing processing = new WorkOrderProcessing();
+        processing.setWorkId(workId);
+        processing.setOperatorOpenid(captainOpenid); // 使用传入的片区长openid
+        processing.setOperatorRole("片区长");
+        processing.setActionType("片区长重新分配");
+        // 获取网格员名称
+        User gridWorker = userService.getUserByOpenid(gridWorkerOpenid);
+        String gridWorkerName = (gridWorker != null && gridWorker.getUsername() != null) ? gridWorker.getUsername() : gridWorkerOpenid;
+
+        // 格式化截止时间
+        String formattedDeadlineTime = deadlineTime.format(java.time.format.DateTimeFormatter.ofPattern("yyyy年MM月dd日 HH时mm分"));
+
+        processing.setActionDescription("将工单重新分配给网格员 " + gridWorkerName + ", 截止时间: " + formattedDeadlineTime);
+        processing.setActionTime(LocalDateTime.now());
+        processingMapper.insert(processing);
+    }
+
+    /**
+     * 处理当天创建但未认领的超时工单
+     */
+    @Transactional
+    public void reportUnclaimedTimeoutOrders() {
+        logger.info("开始检查并上报当天创建但未认领的超时工单");
+        LocalDateTime endOfToday = LocalDate.now().plusDays(1).atStartOfDay().minusSeconds(1); // 当天结束的最后一秒
+        List<WorkOrder> timeoutOrders = workOrderMapper.findUnclaimedTimeoutOrdersToday(endOfToday);
+
+        for (WorkOrder order : timeoutOrders) {
+            try {
+                // 更新工单状态为"已上报"
+                order.setStatus("已上报");
+                order.setUpdatedAt(LocalDateTime.now());
+                workOrderMapper.update(order);
+
+                // 记录系统超时上报日志
+                WorkOrderProcessing processing = new WorkOrderProcessing();
+                processing.setWorkId(order.getWorkId());
+                processing.setOperatorOpenid("system"); // 系统操作标识
+                processing.setOperatorRole("系统");
+                processing.setActionType("系统超时上报");
+                processing.setActionDescription("工单创建后当天未认领，系统自动上报");
+                processing.setActionTime(LocalDateTime.now());
+                processingMapper.insert(processing);
+                logger.info("成功上报未认领超时工单: workId={}", order.getWorkId());
+            } catch (Exception e) {
+                logger.error("处理未认领超时工单失败: workId={}", order.getWorkId(), e);
+            }
+        }
+         logger.info("当天创建但未认领的超时工单检查完成，共处理 {} 条", timeoutOrders.size());
+    }
+
+    /**
+     * 处理认领后超时未完成的工单（无截止时间）
+     */
+    @Transactional
+    public void reportProcessingTimeoutOrders() {
+        logger.info("开始检查并上报认领后超时未完成的工单（无截止时间）");
+        // 认领后超过24小时未完成，以 updated_at 为准
+        LocalDateTime timeoutThreshold = LocalDateTime.now().minusHours(24);
+        List<WorkOrder> timeoutOrders = workOrderMapper.findProcessingTimeoutOrdersWithoutDeadline(timeoutThreshold);
+
+        for (WorkOrder order : timeoutOrders) {
+            try {
+                // 更新工单状态为"已上报"
+                order.setStatus("已上报");
+                order.setUpdatedAt(LocalDateTime.now());
+                workOrderMapper.update(order);
+
+                // 记录系统超时上报日志
+                WorkOrderProcessing processing = new WorkOrderProcessing();
+                processing.setWorkId(order.getWorkId());
+                processing.setOperatorOpenid("system"); // 系统操作标识
+                processing.setOperatorRole("系统");
+                processing.setActionType("系统超时上报");
+                processing.setActionDescription("工单认领后超过24小时未完成，系统自动上报");
+                processing.setActionTime(LocalDateTime.now());
+                processingMapper.insert(processing);
+                logger.info("成功上报认领后超时工单: workId={}", order.getWorkId());
+            } catch (Exception e) {
+                logger.error("处理认领后超时工单失败: workId={}", order.getWorkId(), e);
+            }
+        }
+        logger.info("认领后超时未完成的工单（无截止时间）检查完成，共处理 {} 条", timeoutOrders.size());
+    }
+
+    /**
+     * 处理有截止时间但超期未完成的工单
+     */
+    @Transactional
+    public void reportDeadlineTimeoutOrders() {
+         logger.info("开始检查并上报有截止时间但超期未完成的工单");
+         LocalDateTime currentTime = LocalDateTime.now();
+         List<WorkOrder> timeoutOrders = workOrderMapper.findDeadlineTimeoutOrders(currentTime);
+
+         for (WorkOrder order : timeoutOrders) {
+            try {
+                // 更新工单状态为"已上报"
+                order.setStatus("已上报");
+                order.setUpdatedAt(LocalDateTime.now());
+                workOrderMapper.update(order);
+
+                // 记录系统超时上报日志
+                WorkOrderProcessing processing = new WorkOrderProcessing();
+                processing.setWorkId(order.getWorkId());
+                processing.setOperatorOpenid("system"); // 系统操作标识
+                processing.setOperatorRole("系统");
+                processing.setActionType("系统超时上报");
+                processing.setActionDescription("工单超过截止时间未完成，系统自动上报");
+                processing.setActionTime(LocalDateTime.now());
+                processingMapper.insert(processing);
+                logger.info("成功上报超期未完成工单: workId={}", order.getWorkId());
+            } catch (Exception e) {
+                logger.error("处理超期未完成工单失败: workId={}", order.getWorkId(), e);
+            }
+        }
+         logger.info("有截止时间但超期未完成的工单检查完成，共处理 {} 条", timeoutOrders.size());
     }
 } 

@@ -27,39 +27,34 @@ public class UserController {
 
     @PostMapping("/grid/login")
     public ResponseEntity<?> gridLogin(@RequestBody Map<String, String> loginRequest) {
-        try {
+        logger.info("Login attempt - username: {}", loginRequest.get("username"));
+        
             String username = loginRequest.get("username");
             String password = loginRequest.get("password");
 
-            logger.info("Login attempt - username: {}", username);
-
             if (username == null || password == null) {
-                logger.warn("Login failed - username or password is null");
-                return ResponseEntity.badRequest().body("用户名和密码不能为空");
+            logger.warn("Login failed - missing username or password");
+            return ResponseEntity.badRequest().body("请输入用户名和密码");
             }
 
             User user = userService.login(username, password);
-            if (user == null) {
-                logger.warn("Login failed - invalid credentials for user: {}", username);
-                return ResponseEntity.badRequest().body("账号或密码错误");
-            }
+        
+        if (user != null && ("网格员".equals(user.getRole()) || "片区长".equals(user.getRole()))) {
+            logger.info("Login successful - username: {}, role: {}", username, user.getRole());
 
-            // 生成JWT token
+            // 生成JWT令牌
             String token = jwtUtils.generateToken(user);
-            logger.info("Generated JWT token for user: {}", username);
 
             // 构建响应数据
             Map<String, Object> response = new HashMap<>();
             response.put("token", token);
-            response.put("role", user.getRole());
-            response.put("userId", user.getUserId());
-            response.put("username", user.getUsername());
+            response.put("userInfo", user);
 
-            logger.info("Login successful for user: {}, role: {}", username, user.getRole());
             return ResponseEntity.ok(response);
-        } catch (Exception e) {
-            logger.error("Grid login error: ", e);
-            return ResponseEntity.internalServerError().body("服务器内部错误");
+        } else {
+            String errorMsg = user == null ? "账号或密码错误" : "无权限登录";
+            logger.warn("Login failed - {} for user: {}", errorMsg, username);
+            return ResponseEntity.badRequest().body(errorMsg);
         }
     }
 
@@ -130,8 +125,18 @@ public class UserController {
 
             // 不返回敏感信息
             user.setPasswordHash(null);
+
+            // 构建响应数据，确保包含 isSuperAdmin 字段
+            Map<String, Object> response = new HashMap<>();
+            response.put("userId", user.getUserId());
+            response.put("username", user.getUsername());
+            response.put("role", user.getRole());
+            response.put("phoneNumber", user.getPhoneNumber());
+            response.put("openid", user.getOpenid());
+            response.put("isSuperAdmin", user.getIsSuperAdmin());
+
             logger.info("User info found for userId: {}", userId);
-            return ResponseEntity.ok(user);
+            return ResponseEntity.ok(response);
         } catch (Exception e) {
             logger.error("Error getting user info: ", e);
             return ResponseEntity.status(403).body("获取用户信息失败");

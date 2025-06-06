@@ -67,4 +67,11 @@ public interface UserMapper {
      * @return 用户列表
      */
     List<User> findByRole(String role);
+
+    /**
+     * 删除用户
+     * @param userId 用户ID
+     * @return 影响的行数
+     */
+    int deleteById(Integer userId);
 } 

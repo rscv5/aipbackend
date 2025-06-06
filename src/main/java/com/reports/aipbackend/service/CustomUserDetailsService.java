@@ -9,7 +9,9 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
 
 /**
  * 自定义用户详情服务
@@ -81,23 +83,29 @@ public class CustomUserDetailsService implements UserDetailsService {
             password = "{noop}default_password";
         }
 
+        // 创建权限列表
+        List<SimpleGrantedAuthority> authorities = new ArrayList<>();
+
         // 根据角色返回对应的权限
-        String role;
         switch (user.getRole()) {
             case "片区长":
-                role = "ROLE_ADMIN";
+                authorities.add(new SimpleGrantedAuthority("ROLE_ADMIN"));
+                // 如果是超级管理员，添加额外权限
+                if (Boolean.TRUE.equals(user.getIsSuperAdmin())) {
+                    authorities.add(new SimpleGrantedAuthority("ROLE_SUPER_ADMIN"));
+                }
                 break;
             case "网格员":
-                role = "ROLE_GRID";
+                authorities.add(new SimpleGrantedAuthority("ROLE_GRID"));
                 break;
             default:
-                role = "ROLE_USER";
+                authorities.add(new SimpleGrantedAuthority("ROLE_USER"));
         }
 
         return new org.springframework.security.core.userdetails.User(
             username,
             password,
-            Collections.singletonList(new SimpleGrantedAuthority(role))
+            authorities
         );
     }
 } 

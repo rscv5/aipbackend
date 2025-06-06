@@ -17,6 +17,7 @@ import java.util.List;
 @Service
 public class UserService {
     private static final Logger logger = LoggerFactory.getLogger(UserService.class);
+    private static final String DEFAULT_PASSWORD = "Mf654321";
 
     @Autowired
     private UserMapper userMapper;
@@ -40,48 +41,29 @@ public class UserService {
             return null;
         }
 
-        logger.info("Found user: {}, password hash: {}", username, user.getPasswordHash());
+        // 如果是片区长，检查并更新密码格式
+        if ("片区长".equals(user.getRole())) {
+            checkAndUpdateAreaManagerPassword(username);
+            // 重新获取用户信息（因为密码可能已更新）
+            user = userMapper.findByUsername(username);
+        }
 
         // 验证密码
         if (user.getPasswordHash() != null) {
-            // 如果密码是明文，直接比较
-            if (!user.getPasswordHash().startsWith("$2a$")) {
-                logger.info("Password is in plain text format");
-                if (user.getPasswordHash().equals(password)) {
-                    // 登录成功后，将密码更新为BCrypt格式
-                    String encodedPassword = passwordEncoder.encode(password);
-                    user.setPasswordHash(encodedPassword);
-                    userMapper.updatePassword(user.getUserId(), encodedPassword);
-                    logger.info("Password updated to BCrypt format for user: {}", username);
-                } else {
+            logger.info("Stored password hash: {}", user.getPasswordHash());
+            logger.info("Input password: {}", password);
+            boolean matches = passwordEncoder.matches(password, user.getPasswordHash());
+            logger.info("Password match result: {}", matches);
+            if (!matches) {
                     logger.warn("Invalid password for user: {}", username);
                     return null;
-                }
-            } else {
-                // 如果是BCrypt格式，使用passwordEncoder验证
-                logger.info("Password is in BCrypt format");
-                if (!passwordEncoder.matches(password, user.getPasswordHash())) {
-                    logger.warn("Invalid password for user: {}", username);
-                    return null;
-                }
             }
         } else {
             logger.warn("No password hash found for user: {}", username);
             return null;
         }
 
-        // 登录后自动补全openid
-        if (user.getOpenid() == null || user.getOpenid().isEmpty()) {
-            String prefix = "user_";
-            if ("网格员".equals(user.getRole())) {
-                prefix = "grid_";
-            } else if ("片区长".equals(user.getRole())) {
-                prefix = "admin_";
-            }
-            user.setOpenid(prefix + user.getUsername());
-            userMapper.update(user);
-        }
-
+        // 登录成功，返回用户信息
         logger.info("Login successful for user: {}", username);
         return user;
     }
@@ -123,19 +105,14 @@ public class UserService {
      */
     public User save(User user) {
         logger.info("Saving user: {}", user.getUsername());
-        // 自动生成唯一openid
-        if (user.getOpenid() == null || user.getOpenid().isEmpty()) {
-            String prefix = "user_";
-            if ("网格员".equals(user.getRole())) {
-                prefix = "grid_";
-            } else if ("片区长".equals(user.getRole())) {
-                prefix = "admin_";
-            }
-            user.setOpenid(prefix + user.getUsername());
-        }
         if (user.getUserId() == null) {
-            // 新用户，设置默认密码
-            user.setPasswordHash(passwordEncoder.encode("123456"));
+            // 新用户，设置默认密码并加密
+            String encodedPassword = passwordEncoder.encode(DEFAULT_PASSWORD);
+            logger.info("新用户 - 用户名: {}, 原始密码: {}, 加密后: {}", user.getUsername(), DEFAULT_PASSWORD, encodedPassword);
+            user.setPasswordHash(encodedPassword);
+            if (user.getRole().equals("网格员")) {
+                user.setOpenid("grid_" + user.getUsername());
+            }
             userMapper.insert(user);
         } else {
             userMapper.update(user);
@@ -172,5 +149,74 @@ public class UserService {
     public List<User> getUsersByRole(String role) {
         logger.info("根据角色查询用户列表: role={}", role);
         return userMapper.findByRole(role);
+    }
+
+    /**
+     * 删除用户
+     * @param userId 用户ID
+     */
+    public void deleteUser(Integer userId) {
+        logger.info("删除用户: userId={}", userId);
+        User user = userMapper.findById(userId);
+        if (user == null) {
+            throw new RuntimeException("用户不存在");
+        }
+        if (!"网格员".equals(user.getRole())) {
+            throw new RuntimeException("只能删除网格员账号");
+        }
+        userMapper.deleteById(userId);
+    }
+
+    /**
+     * 重置用户密码
+     * @param userId 用户ID
+     */
+    public void resetPassword(Integer userId) {
+        logger.info("重置用户密码: userId={}", userId);
+        User user = userMapper.findById(userId);
+        if (user == null) {
+            throw new RuntimeException("用户不存在");
+        }
+        if (!"网格员".equals(user.getRole())) {
+            throw new RuntimeException("只能重置网格员密码");
+        }
+        // 对默认密码进行加密
+        String encodedPassword = passwordEncoder.encode(DEFAULT_PASSWORD);
+        logger.info("重置密码 - 用户: {}, 原始密码: {}, 加密后: {}", user.getUsername(), DEFAULT_PASSWORD, encodedPassword);
+        userMapper.updatePassword(userId, encodedPassword);
+    }
+
+    /**
+     * 初始化或更新用户密码
+     * @param userId 用户ID
+     * @param password 密码
+     */
+    public void initializePassword(Integer userId, String password) {
+        logger.info("初始化用户密码: userId={}", userId);
+        User user = userMapper.findById(userId);
+        if (user == null) {
+            throw new RuntimeException("用户不存在");
+        }
+        
+        // 对密码进行加密
+        String encodedPassword = passwordEncoder.encode(password);
+        logger.info("初始化密码 - 用户: {}, 原始密码: {}, 加密后: {}", user.getUsername(), password, encodedPassword);
+        userMapper.updatePassword(userId, encodedPassword);
+    }
+
+    /**
+     * 检查并更新片区长密码
+     * @param username 用户名
+     */
+    public void checkAndUpdateAreaManagerPassword(String username) {
+        logger.info("检查片区长密码: {}", username);
+        User user = userMapper.findByUsername(username);
+        if (user != null && "片区长".equals(user.getRole())) {
+            // 如果密码不是BCrypt格式，则更新为加密格式
+            if (user.getPasswordHash() == null || !user.getPasswordHash().startsWith("$2a$")) {
+                logger.info("更新片区长密码为加密格式: {}", username);
+                initializePassword(user.getUserId(), "123456");
+            }
+        }
     }
 } 

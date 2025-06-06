@@ -1,0 +1,11 @@
+<delete id="deleteById">
+    UPDATE users SET is_deleted = true WHERE user_id = #{userId}
+</delete>
+
+<select id="findAll" resultType="com.reports.aipbackend.entity.User">
+    SELECT * FROM users WHERE is_deleted = false OR is_deleted IS NULL
+</select>
+
+<select id="findById" resultType="com.reports.aipbackend.entity.User">
+    SELECT * FROM users WHERE user_id = #{userId} AND (is_deleted = false OR is_deleted IS NULL)
+</select> 
