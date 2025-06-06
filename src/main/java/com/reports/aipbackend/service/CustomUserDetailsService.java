@@ -30,7 +30,12 @@ public class CustomUserDetailsService implements UserDetailsService {
      */
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        User user = userMapper.findByUsername(username);
+        // 先尝试通过手机号查找用户
+        User user = userMapper.findByPhoneNumber(username);
+        if (user == null) {
+            // 如果手机号查找失败，尝试通过用户名查找
+            user = userMapper.findByUsername(username);
+        }
         if (user == null) {
             throw new UsernameNotFoundException("用户不存在: " + username);
         }

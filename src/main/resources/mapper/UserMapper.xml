@@ -16,6 +16,13 @@
         SELECT * FROM users WHERE username = #{username} AND (is_deleted = false OR is_deleted IS NULL)
     </select>
 
+    <select id="findByPhoneNumber" resultMap="BaseResultMap">
+        SELECT * FROM users 
+        WHERE phone_number = #{phoneNumber} 
+        AND (is_deleted = false OR is_deleted IS NULL)
+        AND (role = '网格员' OR role = '片区长')
+    </select>
+
     <select id="findByUsernameAndPassword" resultMap="BaseResultMap">
         SELECT * FROM users WHERE username = #{username} AND password_hash = #{passwordHash} AND (is_deleted = false OR is_deleted IS NULL)
     </select>

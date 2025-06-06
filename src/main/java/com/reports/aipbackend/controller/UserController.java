@@ -31,20 +31,20 @@ public class UserController {
 
     @PostMapping("/grid/login")
     public ResponseEntity<?> gridLogin(@RequestBody Map<String, String> loginRequest) {
-        logger.info("Login attempt - username: {}", loginRequest.get("username"));
+        logger.info("Login attempt - username/phone: {}", loginRequest.get("username"));
         
-            String username = loginRequest.get("username");
-            String password = loginRequest.get("password");
+        String username = loginRequest.get("username");
+        String password = loginRequest.get("password");
 
-            if (username == null || password == null) {
-            logger.warn("Login failed - missing username or password");
-            return ResponseEntity.badRequest().body("请输入用户名和密码");
-            }
+        if (username == null || password == null) {
+            logger.warn("Login failed - missing username/phone or password");
+            return ResponseEntity.badRequest().body("请输入手机号和密码");
+        }
 
-            User user = userService.login(username, password);
-        
+        User user = userService.login(username, password);
+
         if (user != null && ("网格员".equals(user.getRole()) || "片区长".equals(user.getRole()))) {
-            logger.info("Login successful - username: {}, role: {}", username, user.getRole());
+            logger.info("Login successful - username/phone: {}, role: {}", username, user.getRole());
 
             // 生成JWT令牌
             String token = jwtUtils.generateToken(user);
@@ -56,7 +56,7 @@ public class UserController {
 
             return ResponseEntity.ok(response);
         } else {
-            String errorMsg = user == null ? "账号或密码错误" : "无权限登录";
+            String errorMsg = user == null ? "手机号或密码错误" : "无权限登录";
             logger.warn("Login failed - {} for user: {}", errorMsg, username);
             return ResponseEntity.badRequest().body(errorMsg);
         }

@@ -26,25 +26,23 @@ public class UserService {
 
     /**
      * 用户登录
-     * @param username 用户名
+     * @param username 用户名/手机号
      * @param password 密码
      * @return 用户信息
      */
     public User login(String username, String password) {
         logger.info("Attempting login for user: {}", username);
         
-        // 查找用户
-        User user = userMapper.findByUsername(username);
+        // 查找用户（先尝试通过手机号查找）
+        User user = userMapper.findByPhoneNumber(username);
+        if (user == null) {
+            // 如果手机号查找失败，尝试通过用户名查找
+            user = userMapper.findByUsername(username);
+        }
+        
         if (user == null) {
             logger.warn("User not found: {}", username);
             return null;
-        }
-
-        // 如果是片区长，检查并更新密码格式
-        if ("片区长".equals(user.getRole())) {
-            checkAndUpdateAreaManagerPassword(username);
-            // 重新获取用户信息（因为密码可能已更新）
-            user = userMapper.findByUsername(username);
         }
 
         // 验证密码
@@ -54,8 +52,8 @@ public class UserService {
             boolean matches = passwordEncoder.matches(password, user.getPasswordHash());
             logger.info("Password match result: {}", matches);
             if (!matches) {
-                    logger.warn("Invalid password for user: {}", username);
-                    return null;
+                logger.warn("Invalid password for user: {}", username);
+                return null;
             }
         } else {
             logger.warn("No password hash found for user: {}", username);

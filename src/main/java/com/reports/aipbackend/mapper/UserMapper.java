@@ -19,6 +19,13 @@ public interface UserMapper {
     User findByUsername(String username);
 
     /**
+     * 根据手机号查找用户
+     * @param phoneNumber 手机号
+     * @return 用户信息
+     */
+    User findByPhoneNumber(String phoneNumber);
+
+    /**
      * 根据用户名和密码查找用户
      * @param username 用户名
      * @param passwordHash 密码哈希
