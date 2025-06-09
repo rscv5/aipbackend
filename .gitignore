@@ -55,6 +55,7 @@ application-prod.properties
 # Build
 target/
 build/
+out/
 
 ### STS ###
 .apt_generated
