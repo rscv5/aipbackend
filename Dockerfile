@@ -34,7 +34,7 @@ RUN apk add ca-certificates
 WORKDIR /aipBackend
 
 # 将构建产物jar包拷贝到运行时目录中
-COPY --from=build /aipBackend/target/*.jar .
+COPY --from=build /aipBackend/target/springboot-wxcloudrun-1.0.jar .
 
 # 暴露端口
 # 此处端口必须与「服务设置」-「流水线」以及「手动上传代码包」部署时填写的端口一致，否则会部署失败。
