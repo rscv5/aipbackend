@@ -15,6 +15,9 @@ FROM eclipse-temurin:17-jre-jammy
 # 指定运行时的工作目录
 WORKDIR /app
 
+# 安装 wget 用于健康检查
+RUN apt-get update && apt-get install -y wget && rm -rf /var/lib/apt/lists/*
+
 # 创建上传目录并设置权限
 RUN mkdir -p /app/uploads && \
     chmod 777 /app/uploads
@@ -35,7 +38,7 @@ EXPOSE 8080
 
 # 健康检查
 HEALTHCHECK --interval=30s --timeout=3s \
-  CMD curl -f http://localhost:8080/actuator/health || exit 1
+  CMD wget --no-verbose --tries=1 --spider http://localhost:8080/actuator/health || exit 1
 
 # 启动命令
 ENTRYPOINT ["java", "-jar", "app.jar"] 
