@@ -11,7 +11,7 @@
     <groupId>com.reports</groupId>
     <artifactId>aipBackend</artifactId>
     <version>0.0.1-SNAPSHOT</version>
-    <packaging>war</packaging>
+    <packaging>jar</packaging>
     <name>aipBackend</name>
     <description>aipBackend</description>
     <url/>
