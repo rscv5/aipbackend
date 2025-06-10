@@ -12,16 +12,16 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class COSConfig {
 
-    @Value("${cos.secret-id}")
+    @Value("${TENCENT_CLOUD_SECRET_ID}")
     private String secretId;
 
-    @Value("${cos.secret-key}")
+    @Value("${TENCENT_CLOUD_SECRET_KEY}")
     private String secretKey;
 
-    @Value("${cos.region}")
+    @Value("${COS_REGION}")
     private String region;
 
-    @Value("${cos.bucket-name}")
+    @Value("${COS_BUCKET_NAME}")
     private String bucketName;
 
     @Value("${cos.domain}")
