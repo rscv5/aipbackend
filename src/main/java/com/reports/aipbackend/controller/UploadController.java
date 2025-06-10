@@ -91,11 +91,7 @@ public class UploadController {
             logger.info("图片已成功上传到COS: {}", cosKey);
 
             // 返回图片的访问URL
-            // COS的默认访问URL格式：https://<bucketName>.cos.<region>.tencentcos.cn/<key>
-            String imageUrl = String.format("https://%s.cos.%s.tencentcos.cn/%s", 
-                                            cosConfig.getBucketName(), 
-                                            cosConfig.getRegion(), 
-                                            cosKey);
+            String imageUrl = String.format("%s/%s", cosConfig.getDomain(), cosKey);
             Map<String, Object> result = new HashMap<>();
             result.put("url", imageUrl);
             result.put("filename", filename); // 可选，保留原字段

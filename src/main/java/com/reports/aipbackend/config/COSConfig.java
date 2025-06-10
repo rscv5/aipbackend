@@ -24,6 +24,9 @@ public class COSConfig {
     @Value("${cos.bucket-name}")
     private String bucketName;
 
+    @Value("${cos.domain}")
+    private String domain;
+
     @Bean
     public COSClient cosClient() {
         // 1 初始化用户身份信息(secretId, secretKey)
@@ -40,5 +43,9 @@ public class COSConfig {
 
     public String getRegion() {
         return region;
+    }
+
+    public String getDomain() {
+        return domain;
     }
 } 

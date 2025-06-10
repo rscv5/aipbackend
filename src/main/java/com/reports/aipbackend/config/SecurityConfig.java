@@ -42,9 +42,7 @@ public class SecurityConfig {
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                 // 公开访问的接口
-                .requestMatchers("/api/grid/login", "/api/user/login", "/api/area/login").permitAll()
-                // 允许公开访问图片资源
-                .requestMatchers("/img_test/**").permitAll()
+                .requestMatchers("/api/**", "/login/**", "/api/generate-password").permitAll()
                 // 其他请求需要认证
                 .anyRequest().authenticated()
             )

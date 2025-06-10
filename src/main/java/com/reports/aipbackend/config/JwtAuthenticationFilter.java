@@ -30,11 +30,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final CustomUserDetailsService userDetailsService;
     
     // 定义不需要验证的路径
-    private static final List<String> EXCLUDED_PATHS = Arrays.asList(
-        "/api/grid/login",
-        "/api/user/login",
-        "/api/area/login",
-        "/img_test/"
+    private final List<String> excludedPaths = Arrays.asList(
+            "/login/",
+            "/api/grid/login",
+            "/api/user/login",
+            "/api/area/login",
+            "/api/generate-password"
     );
     
     public JwtAuthenticationFilter(JwtUtils jwtUtils, CustomUserDetailsService userDetailsService) {
@@ -45,7 +46,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getRequestURI();
-        return EXCLUDED_PATHS.stream().anyMatch(path::startsWith);
+        return excludedPaths.stream().anyMatch(path::startsWith);
     }
 
     @Override
