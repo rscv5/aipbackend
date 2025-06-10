@@ -52,8 +52,8 @@ public class UserService {
             boolean matches = passwordEncoder.matches(password, user.getPasswordHash());
             logger.info("Password match result: {}", matches);
             if (!matches) {
-                logger.warn("Invalid password for user: {}", username);
-                return null;
+                    logger.warn("Invalid password for user: {}", username);
+                    return null;
             }
         } else {
             logger.warn("No password hash found for user: {}", username);

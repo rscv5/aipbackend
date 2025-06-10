@@ -33,15 +33,15 @@ public class UserController {
     public ResponseEntity<?> gridLogin(@RequestBody Map<String, String> loginRequest) {
         logger.info("Login attempt - username/phone: {}", loginRequest.get("username"));
         
-        String username = loginRequest.get("username");
-        String password = loginRequest.get("password");
+            String username = loginRequest.get("username");
+            String password = loginRequest.get("password");
 
-        if (username == null || password == null) {
+            if (username == null || password == null) {
             logger.warn("Login failed - missing username/phone or password");
             return ResponseEntity.badRequest().body("请输入手机号和密码");
-        }
+            }
 
-        User user = userService.login(username, password);
+            User user = userService.login(username, password);
 
         if (user != null && ("网格员".equals(user.getRole()) || "片区长".equals(user.getRole()))) {
             logger.info("Login successful - username/phone: {}, role: {}", username, user.getRole());
