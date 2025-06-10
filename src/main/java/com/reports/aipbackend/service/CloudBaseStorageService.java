@@ -65,19 +65,26 @@ public class CloudBaseStorageService {
         org.springframework.http.HttpEntity<String> requestEntity = new org.springframework.http.HttpEntity<>(requestBodyJson, headers);
 
         logger.info("请求微信云托管获取文件上传链接: {}", filePathUrl);
-        ResponseEntity<Map> responseEntity = restTemplate.postForEntity(filePathUrl, requestEntity, Map.class);
+        ResponseEntity<String> responseEntity = restTemplate.postForEntity(filePathUrl, requestEntity, String.class);
 
         if (responseEntity.getStatusCode().is2xxSuccessful() && responseEntity.getBody() != null) {
-            Map<String, Object> responseBody = responseEntity.getBody();
-            if (responseBody.containsKey("url")) {
-                logger.info("成功获取文件上传链接: {}", responseBody.get("url"));
-                return responseBody;
-            } else {
-                logger.error("获取文件上传链接失败: {}", responseBody.get("errmsg"));
+            String responseBodyString = responseEntity.getBody();
+            logger.info("微信云托管API原始响应: {}", responseBodyString);
+            try {
+                Map<String, Object> responseBody = objectMapper.readValue(responseBodyString, Map.class);
+                if (responseBody.containsKey("url")) {
+                    logger.info("成功获取文件上传链接: {}", responseBody.get("url"));
+                    return responseBody;
+                } else {
+                    logger.error("获取文件上传链接失败: {}", responseBody.get("errmsg"));
+                    return null;
+                }
+            } catch (IOException e) {
+                logger.error("解析微信云托管API响应失败，响应内容非JSON格式: {}", responseBodyString, e);
                 return null;
             }
         } else {
-            logger.error("请求微信云托管获取文件上传链接失败: 状态码={}, 响应={}", responseEntity.getStatusCode(), responseEntity.getBody());
+            logger.error("请求微信云托管获取文件上传链接失败: 状态码={}, 原始响应={}", responseEntity.getStatusCode(), responseEntity.getBody());
             return null;
         }
     }
