@@ -1,9 +1,6 @@
 package com.reports.aipbackend.controller;
 
-import com.reports.aipbackend.config.COSConfig;
-import com.qcloud.cos.COSClient;
-import com.qcloud.cos.model.ObjectMetadata;
-import com.qcloud.cos.model.PutObjectRequest;
+import com.reports.aipbackend.service.CloudBaseStorageService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,10 +24,7 @@ public class UploadController {
     private static final Logger logger = LoggerFactory.getLogger(UploadController.class);
     
     @Autowired
-    private COSClient cosClient;
-
-    @Autowired
-    private COSConfig cosConfig;
+    private CloudBaseStorageService cloudBaseStorageService;
 
     /**
      * 图片上传接口
@@ -71,35 +65,32 @@ public class UploadController {
                 extension = originalFilename.substring(originalFilename.lastIndexOf('.'));
             }
             String filename = UUID.randomUUID().toString().replace("-", "") + extension;
-            
-            // 构造 COS 文件路径 (Key)
-            String cosKey = (type != null && !type.isEmpty() ? (type + "/") : "") + filename;
-            logger.info("准备上传到COS: bucketName={}, key={}", cosConfig.getBucketName(), cosKey);
+            String filePathPrefix = (type != null && !type.isEmpty() ? (type + "/") : "workorder/"); // 默认路径
 
-            // 设置文件元数据
-            ObjectMetadata objectMetadata = new ObjectMetadata();
-            objectMetadata.setContentLength(file.getSize());
-            objectMetadata.setContentType(contentType);
+            // 1. 获取文件上传链接和COS凭证
+            Map<String, Object> uploadLinkInfo = cloudBaseStorageService.getUploadFileLink(filename, filePathPrefix);
+            if (uploadLinkInfo == null) {
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                        .body("获取文件上传链接失败");
+            }
 
-            // 构造上传请求
-            PutObjectRequest putObjectRequest = new PutObjectRequest(
-                cosConfig.getBucketName(), cosKey, file.getInputStream(), objectMetadata
-            );
-
-            // 执行上传
-            cosClient.putObject(putObjectRequest);
-            logger.info("图片已成功上传到COS: {}", cosKey);
+            // 2. 执行文件上传到COS
+            boolean uploadSuccess = cloudBaseStorageService.uploadFileToCos(uploadLinkInfo, file.getBytes(), filename, filePathPrefix);
+            if (!uploadSuccess) {
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                        .body("文件上传到COS失败");
+            }
 
             // 返回图片的访问URL
-            String imageUrl = String.format("%s/%s", cosConfig.getDomain(), cosKey);
+            String imageUrl = (String) uploadLinkInfo.get("url"); // 云托管返回的url已经是完整的访问路径
             Map<String, Object> result = new HashMap<>();
             result.put("url", imageUrl);
-            result.put("filename", filename); // 可选，保留原字段
-            logger.info("返回图片URL: {}", imageUrl);
+            result.put("filename", filename);
+            logger.info("图片上传成功，返回URL: {}", imageUrl);
             
             return ResponseEntity.ok(result);
         } catch (IOException e) {
-            logger.error("图片上传到COS失败", e);
+            logger.error("处理文件输入流或上传失败", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body("图片上传失败: " + e.getMessage());
         } catch (Exception e) {
