@@ -1,36 +1,36 @@
 package com.reports.aipbackend.controller;
 
+import com.reports.aipbackend.config.COSConfig;
+import com.qcloud.cos.COSClient;
+import com.qcloud.cos.model.ObjectMetadata;
+import com.qcloud.cos.model.PutObjectRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.http.ResponseEntity;
-import org.springframework.http.HttpStatus;
 
-import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
 /**
  * 图片上传控制器
- * 负责接收前端上传的图片并保存到本地指定目录
+ * 负责接收前端上传的图片并保存到腾讯云COS
  */
 @RestController
 @RequestMapping("/api")
 public class UploadController {
     private static final Logger logger = LoggerFactory.getLogger(UploadController.class);
     
-    @Value("${file.upload.path}")
-    private String uploadPath;
-    
-    @Value("${file.upload.url-prefix}")
-    private String urlPrefix;
+    @Autowired
+    private COSClient cosClient;
+
+    @Autowired
+    private COSConfig cosConfig;
 
     /**
      * 图片上传接口
@@ -64,38 +64,50 @@ public class UploadController {
         }
         
         try {
-            // 支持 type 子目录
-            Path uploadDir = (type != null && !type.isEmpty())
-                    ? Paths.get(uploadPath, type)
-                    : Paths.get(uploadPath);
-            logger.info("准备保存到目录: {}", uploadDir);
-            
-            if (!Files.exists(uploadDir)) {
-                Files.createDirectories(uploadDir);
-                logger.info("创建上传目录: {}", uploadDir);
-            }
-
             // 生成唯一文件名
             String originalFilename = file.getOriginalFilename();
-            String extension = originalFilename.substring(originalFilename.lastIndexOf('.'));
+            String extension = "";
+            if (originalFilename != null && originalFilename.contains(".")) {
+                extension = originalFilename.substring(originalFilename.lastIndexOf('.'));
+            }
             String filename = UUID.randomUUID().toString().replace("-", "") + extension;
-            Path filePath = uploadDir.resolve(filename);
-            logger.info("准备保存文件: {}", filePath);
+            
+            // 构造 COS 文件路径 (Key)
+            String cosKey = (type != null && !type.isEmpty() ? (type + "/") : "") + filename;
+            logger.info("准备上传到COS: bucketName={}, key={}", cosConfig.getBucketName(), cosKey);
 
-            // 保存文件
-            Files.copy(file.getInputStream(), filePath);
-            logger.info("图片保存成功: {}", filePath);
+            // 设置文件元数据
+            ObjectMetadata objectMetadata = new ObjectMetadata();
+            objectMetadata.setContentLength(file.getSize());
+            objectMetadata.setContentType(contentType);
 
-            // 返回图片的访问路径
-            String imageUrl = urlPrefix + (type != null && !type.isEmpty() ? ("/" + type) : "") + "/" + filename;
+            // 构造上传请求
+            PutObjectRequest putObjectRequest = new PutObjectRequest(
+                cosConfig.getBucketName(), cosKey, file.getInputStream(), objectMetadata
+            );
+
+            // 执行上传
+            cosClient.putObject(putObjectRequest);
+            logger.info("图片已成功上传到COS: {}", cosKey);
+
+            // 返回图片的访问URL
+            // COS的默认访问URL格式：https://<bucketName>.cos.<region>.tencentcos.cn/<key>
+            String imageUrl = String.format("https://%s.cos.%s.tencentcos.cn/%s", 
+                                            cosConfig.getBucketName(), 
+                                            cosConfig.getRegion(), 
+                                            cosKey);
             Map<String, Object> result = new HashMap<>();
             result.put("url", imageUrl);
-            result.put("filename", filename);
+            result.put("filename", filename); // 可选，保留原字段
             logger.info("返回图片URL: {}", imageUrl);
             
             return ResponseEntity.ok(result);
         } catch (IOException e) {
-            logger.error("图片上传失败", e);
+            logger.error("图片上传到COS失败", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("图片上传失败: " + e.getMessage());
+        } catch (Exception e) {
+            logger.error("图片上传发生未知错误", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body("图片上传失败: " + e.getMessage());
         }
