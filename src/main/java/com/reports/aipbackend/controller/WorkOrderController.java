@@ -44,7 +44,7 @@ public class WorkOrderController {
             WorkOrder workOrder = new WorkOrder();
             
             // 必填字段验证
-            String userOpenid = (String) params.get("userOpenid");
+            String userOpenid = String.valueOf(params.get("userOpenid"));
             if (userOpenid == null || userOpenid.trim().isEmpty()) {
                 logger.error("创建工单失败: userOpenid为空");
                 return Result.error("用户标识不能为空");
