@@ -164,6 +164,9 @@ public class UserController {
             String secret = System.getenv("WECHAT_SECRET"); // 从环境变量中获取 AppSecret
             String grantType = "authorization_code";
 
+            logger.info("从环境变量获取的 appid: {}", appid);
+            logger.info("从环境变量获取的 secret: {}", secret);
+
             // 构建请求参数
             Map<String, String> params = new HashMap<>();
             params.put("appid", appid);
@@ -173,17 +176,20 @@ public class UserController {
 
             // 发送请求
             String response = sendGetRequest(url, params);
+            logger.info("微信API响应: {}", response);
 
             // 解析响应
             JSONObject jsonResponse = new JSONObject(response);
             if (jsonResponse.has("openid")) {
-                return jsonResponse.getString("openid");
+                String openid = jsonResponse.getString("openid");
+                logger.info("成功获取 openid: {}", openid);
+                return openid;
             } else {
-                logger.error("Failed to get openid from WeChat API: {}", response);
+                logger.error("获取 openid 失败: {}", response);
                 return null;
             }
         } catch (Exception e) {
-            logger.error("Error getting openid from WeChat API: ", e);
+            logger.error("调用微信API获取 openid 失败: ", e);
             return null;
         }
     }
