@@ -101,6 +101,7 @@ public class UserController {
             response.put("token", token);
             response.put("role", user.getRole());
             response.put("userId", user.getUserId());
+            response.put("openid", user.getOpenid());
 
             logger.info("Login successful for user: {}, role: {}", user.getUsername(), user.getRole());
             return ResponseEntity.ok(response);
