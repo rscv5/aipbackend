@@ -130,4 +130,63 @@ public class CloudBaseStorageService {
             }
         }
     }
+
+    /**
+     * 根据文件ID获取文件下载链接
+     * @param fileId 文件在云托管中的唯一标识 (cos_file_id)
+     * @return 文件的下载URL，如果失败返回null
+     */
+    public String getDownloadUrlByFileId(String fileId) {
+        String accessToken = accessTokenUtil.getAccessToken();
+        if (accessToken == null) {
+            logger.error("获取access_token失败，无法获取文件下载链接");
+            return null;
+        }
+
+        String downloadUrl = String.format("https://api.weixin.qq.com/tcb/batchdownloadfile?access_token=%s", accessToken);
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+
+        Map<String, Object> fileItem = new HashMap<>();
+        fileItem.put("fileid", fileId);
+        fileItem.put("max_age", 7200); // 设置下载链接有效期，单位秒，最大1小时，这里设置为2小时以提供足够时间
+
+        Map<String, Object> requestData = new HashMap<>();
+        requestData.put("env", env);
+        requestData.put("file_list", new Map[]{fileItem});
+
+        try {
+            String requestBodyJson = objectMapper.writeValueAsString(requestData);
+            org.springframework.http.HttpEntity<String> requestEntity = new org.springframework.http.HttpEntity<>(requestBodyJson, headers);
+
+            logger.info("请求微信云托管获取文件下载链接: {}", downloadUrl);
+            ResponseEntity<String> responseEntity = restTemplate.postForEntity(downloadUrl, requestEntity, String.class);
+
+            if (responseEntity.getStatusCode().is2xxSuccessful() && responseEntity.getBody() != null) {
+                Map<String, Object> responseBody = objectMapper.readValue(responseEntity.getBody(), Map.class);
+                if (responseBody.containsKey("file_list")) {
+                    //noinspection unchecked
+                    java.util.List<Map<String, Object>> fileList = (java.util.List<Map<String, Object>>) responseBody.get("file_list");
+                    if (!fileList.isEmpty() && fileList.get(0).containsKey("download_url")) {
+                        String url = (String) fileList.get(0).get("download_url");
+                        logger.info("成功获取文件下载链接: {}", url);
+                        return url;
+                    } else {
+                        logger.error("获取文件下载链接失败: {}", responseBody.get("errmsg"));
+                        return null;
+                    }
+                } else {
+                    logger.error("获取文件下载链接失败，响应中不包含file_list: {}", responseEntity.getBody());
+                    return null;
+                }
+            } else {
+                logger.error("请求微信云托管获取文件下载链接失败: 状态码={}, 原始响应={}", responseEntity.getStatusCode(), responseEntity.getBody());
+                return null;
+            }
+        } catch (Exception e) {
+            logger.error("调用微信云托管获取文件下载链接失败", e);
+            return null;
+        }
+    }
 } 

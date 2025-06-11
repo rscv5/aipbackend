@@ -81,8 +81,21 @@ public class UploadController {
                         .body("文件上传到COS失败");
             }
 
-            // 返回图片的访问URL
-            String imageUrl = (String) uploadLinkInfo.get("url"); // 云托管返回的url已经是完整的访问路径
+            // 上传成功后，获取文件的cos_file_id，并用它来获取下载链接
+            String cosFileId = (String) uploadLinkInfo.get("cos_file_id");
+            if (cosFileId == null) {
+                logger.error("上传成功但未获取到cos_file_id");
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                        .body("文件上传成功，但无法获取文件ID");
+            }
+
+            String imageUrl = cloudBaseStorageService.getDownloadUrlByFileId(cosFileId);
+            if (imageUrl == null) {
+                logger.error("获取文件下载链接失败，cosFileId: {}", cosFileId);
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                        .body("文件上传成功，但获取下载链接失败");
+            }
+
             Map<String, Object> result = new HashMap<>();
             result.put("url", imageUrl);
             result.put("filename", filename);
