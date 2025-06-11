@@ -14,6 +14,11 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import org.json.JSONObject;
 
 @RestController
 @RequestMapping(value = "/api", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -62,6 +67,8 @@ public class UserController {
         }
     }
 
+    
+
     @PostMapping("/user/login")
     public ResponseEntity<?> userLogin(@RequestBody Map<String, String> loginRequest) {
         try {
@@ -72,7 +79,7 @@ public class UserController {
             }
 
             // TODO: 调用微信API获取openid
-            String openId = "test_openid"; // 临时使用测试openid
+            String openId = getOpenidFromWechat(code);
             logger.info("WeChat login attempt - openid: {}", openId);
 
             User user = userService.findByOpenid(openId);
@@ -144,6 +151,67 @@ public class UserController {
         } catch (Exception e) {
             logger.error("Error getting user info: ", e);
             return ResponseEntity.status(403).body("获取用户信息失败");
+        }
+    }
+
+    // 调用微信API获取openid
+    private String getOpenidFromWechat(String code) {
+        try {
+            // 构建请求URL
+            String url = "https://api.weixin.qq.com/sns/jscode2session";
+            String appid = System.getenv("WECHAT_APPID"); // 从环境变量中获取 AppID
+            String secret = System.getenv("WECHAT_SECRET"); // 从环境变量中获取 AppSecret
+            String grantType = "authorization_code";
+
+            // 构建请求参数
+            Map<String, String> params = new HashMap<>();
+            params.put("appid", appid);
+            params.put("secret", secret);
+            params.put("js_code", code);
+            params.put("grant_type", grantType);
+
+            // 发送请求
+            String response = sendGetRequest(url, params);
+
+            // 解析响应
+            JSONObject jsonResponse = new JSONObject(response);
+            if (jsonResponse.has("openid")) {
+                return jsonResponse.getString("openid");
+            } else {
+                logger.error("Failed to get openid from WeChat API: {}", response);
+                return null;
+            }
+        } catch (Exception e) {
+            logger.error("Error getting openid from WeChat API: ", e);
+            return null;
+        }
+    }
+
+    // 发送GET请求
+    private String sendGetRequest(String url, Map<String, String> params) throws Exception {
+        StringBuilder urlBuilder = new StringBuilder(url);
+        urlBuilder.append("?");
+        for (Map.Entry<String, String> entry : params.entrySet()) {
+            urlBuilder.append(entry.getKey()).append("=").append(entry.getValue()).append("&");
+        }
+        urlBuilder.deleteCharAt(urlBuilder.length() - 1);
+
+        URL urlObj = new URL(urlBuilder.toString());
+        HttpURLConnection connection = (HttpURLConnection) urlObj.openConnection();
+        connection.setRequestMethod("GET");
+
+        int responseCode = connection.getResponseCode();
+        if (responseCode == HttpURLConnection.HTTP_OK) {
+            BufferedReader in = new BufferedReader(new InputStreamReader(connection.getInputStream()));
+            String inputLine;
+            StringBuilder response = new StringBuilder();
+            while ((inputLine = in.readLine()) != null) {
+                response.append(inputLine);
+            }
+            in.close();
+            return response.toString();
+        } else {
+            throw new Exception("GET request failed with response code: " + responseCode);
         }
     }
 } 

@@ -32,9 +32,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     // 定义不需要验证的路径
     private final List<String> excludedPaths = Arrays.asList(
             "/login/",
-            "/api/grid/login",
-            "/api/user/login",
-            "/api/area/login",
+        "/api/grid/login",
+        "/api/user/login",
+        "/api/area/login",
             "/api/generate-password"
     );
     
