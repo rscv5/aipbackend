@@ -82,16 +82,16 @@ public class UploadController {
             }
 
             // 上传成功后，获取文件的cos_file_id，并用它来获取下载链接
-            String cosFileId = (String) uploadLinkInfo.get("cos_file_id");
-            if (cosFileId == null) {
-                logger.error("上传成功但未获取到cos_file_id");
+            String fileId = (String) uploadLinkInfo.get("file_id");
+            if (fileId == null) {
+                logger.error("上传成功但未获取到file_id");
                 return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                         .body("文件上传成功，但无法获取文件ID");
             }
 
-            String imageUrl = cloudBaseStorageService.getDownloadUrlByFileId(cosFileId);
+            String imageUrl = cloudBaseStorageService.getDownloadUrlByFileId(fileId);
             if (imageUrl == null) {
-                logger.error("获取文件下载链接失败，cosFileId: {}", cosFileId);
+                logger.error("获取文件下载链接失败，fileId: {}", fileId);
                 return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                         .body("文件上传成功，但获取下载链接失败");
             }
