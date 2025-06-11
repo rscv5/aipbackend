@@ -18,10 +18,10 @@ public class AccessTokenUtil {
 
     private static final Logger logger = LoggerFactory.getLogger(AccessTokenUtil.class);
 
-    @Value("${wechat.appid}")
+    @Value("${WECHAT_APPID}")
     private String appid;
 
-    @Value("${wechat.appsecret}")
+    @Value("${WECHAT_SECRET}")
     private String appsecret;
 
     private String accessToken;
@@ -33,9 +33,7 @@ public class AccessTokenUtil {
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
 
     // 初始化时获取一次access_token并开始定时刷新
-    public AccessTokenUtil(@Value("${wechat.appid}") String appid, @Value("${wechat.appsecret}") String appsecret) {
-        this.appid = appid;
-        this.appsecret = appsecret;
+    public AccessTokenUtil() {
         // 初始时不立即获取，等待第一次调用 getAccessToken() 时获取
         // 确保 @Value 注入完成后再使用 appid 和 appsecret
         // 在实际应用中，可以通过 @PostConstruct 或 CommandLineRunner 来在应用启动时初始化
