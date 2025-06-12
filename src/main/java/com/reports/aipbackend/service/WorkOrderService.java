@@ -654,20 +654,40 @@ public class WorkOrderService {
     public List<WorkOrder> getCaptainWorkOrders(Integer captainId, String type) {
         switch (type) {
             case "today":
-                // 获取今日提交的工单
-                return workOrderMapper.findTodayUnclaimedOrders();
+                List<WorkOrder> todayOrders = workOrderMapper.findTodayUnclaimedOrders();
+                logger.info("后端查询到 {} 条今日提交工单 (类型: today)。", todayOrders.size());
+                for (WorkOrder order : todayOrders) {
+                    logger.info("  today工单ID: {} 状态: {}", order.getWorkId(), order.getStatus());
+                }
+                return todayOrders;
             case "processing":
-                // 获取处理中的工单
-                return workOrderMapper.findByStatus("处理中");
+                List<WorkOrder> processingOrders = workOrderMapper.findByStatus("处理中");
+                logger.info("后端查询到 {} 条处理中工单 (类型: processing)。", processingOrders.size());
+                for (WorkOrder order : processingOrders) {
+                    logger.info("  processing工单ID: {} 状态: {}", order.getWorkId(), order.getStatus());
+                }
+                return processingOrders;
             case "reported":
-                // 获取全部上报工单（未领取、已上报、处理中）
-                return workOrderMapper.findReportedAndUnclaimedAndProcessing();
+                List<WorkOrder> reportedOrders = workOrderMapper.findReportedAndUnclaimedAndProcessing();
+                logger.info("后端查询到 {} 条已上报/未领取/处理中工单 (类型: reported)。", reportedOrders.size());
+                for (WorkOrder order : reportedOrders) {
+                    logger.info("  reported工单ID: {} 状态: {}", order.getWorkId(), order.getStatus());
+                }
+                return reportedOrders;
             case "completed":
-                // 获取已完成的工单
-                return workOrderMapper.findByStatus("处理完");
+                List<WorkOrder> completedOrders = workOrderMapper.findByStatus("处理完");
+                logger.info("后端查询到 {} 条已处理完工单 (类型: completed)。", completedOrders.size());
+                for (WorkOrder order : completedOrders) {
+                    logger.info("  completed工单ID: {} 状态: {}", order.getWorkId(), order.getStatus());
+                }
+                return completedOrders;
             default:
-                // 获取所有工单
-                return workOrderMapper.findAll();
+                List<WorkOrder> allOrders = workOrderMapper.findAll();
+                logger.info("后端查询到 {} 条全部工单 (类型: all)。", allOrders.size());
+                for (WorkOrder order : allOrders) {
+                    logger.info("  all工单ID: {} 状态: {}", order.getWorkId(), order.getStatus());
+                }
+                return allOrders;
         }
     }
 
