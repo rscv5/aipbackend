@@ -7,6 +7,7 @@
         <result column="work_id" property="workId"/>
         <result column="operator_openid" property="operatorOpenid"/>
         <result column="operator_role" property="operatorRole"/>
+        <result column="operator_name" property="operatorName"/>
         <result column="action_type" property="actionType"/>
         <result column="action_description" property="actionDescription"/>
         <result column="action_time" property="actionTime"/>
@@ -14,19 +15,42 @@
     </resultMap>
 
     <select id="findById" resultMap="WorkOrderProcessingResultMap" parameterType="long">
-        SELECT * FROM work_order_processing WHERE log_id = #{logId}
+        SELECT
+            wop.*,
+            u.username as operator_name
+        FROM work_order_processing wop
+        LEFT JOIN users u ON wop.operator_openid = u.openid
+        WHERE wop.log_id = #{logId}
     </select>
 
     <select id="findByWorkId" resultMap="WorkOrderProcessingResultMap" parameterType="int">
-        SELECT * FROM work_order_processing WHERE work_id = #{workId} ORDER BY action_time DESC
+        SELECT
+            wop.*,
+            u.username as operator_name
+        FROM work_order_processing wop
+        LEFT JOIN users u ON wop.operator_openid = u.openid
+        WHERE wop.work_id = #{workId}
+        ORDER BY wop.action_time DESC
     </select>
 
     <select id="findByOperatorOpenid" resultMap="WorkOrderProcessingResultMap" parameterType="string">
-        SELECT * FROM work_order_processing WHERE operator_openid = #{operatorOpenid} ORDER BY action_time DESC
+        SELECT
+            wop.*,
+            u.username as operator_name
+        FROM work_order_processing wop
+        LEFT JOIN users u ON wop.operator_openid = u.openid
+        WHERE wop.operator_openid = #{operatorOpenid}
+        ORDER BY wop.action_time DESC
     </select>
 
     <select id="findByActionType" resultMap="WorkOrderProcessingResultMap" parameterType="string">
-        SELECT * FROM work_order_processing WHERE action_type = #{actionType} ORDER BY action_time DESC
+        SELECT
+            wop.*,
+            u.username as operator_name
+        FROM work_order_processing wop
+        LEFT JOIN users u ON wop.operator_openid = u.openid
+        WHERE wop.action_type = #{actionType}
+        ORDER BY wop.action_time DESC
     </select>
 
     <insert id="insert" parameterType="com.reports.aipbackend.entity.WorkOrderProcessing" useGeneratedKeys="true" keyProperty="logId">
