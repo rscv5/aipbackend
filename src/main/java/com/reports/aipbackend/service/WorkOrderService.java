@@ -411,11 +411,16 @@ public class WorkOrderService {
         // 2. 获取处理记录
         List<WorkOrderProcessing> processingLogs = processingMapper.findByWorkId(workId);
         
-        // 统一赋值：将 actionTime 赋值给 createdAt 和 updatedAt
+        // 统一赋值：将 actionTime 赋值给 createdAt 和 updatedAt，并填充操作人用户名
         if (processingLogs != null) {
             for (WorkOrderProcessing log : processingLogs) {
                 log.setCreatedAt(log.getActionTime());
                 log.setUpdatedAt(log.getActionTime());
+                // 根据 operatorOpenid 获取操作人信息并设置用户名
+                User operator = userService.getUserByOpenid(log.getOperatorOpenid());
+                if (operator != null) {
+                    log.setOperatorUsername(operator.getUsername());
+                }
             }
         }
             

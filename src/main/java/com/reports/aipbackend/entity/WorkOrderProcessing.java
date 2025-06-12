@@ -10,7 +10,7 @@ public class WorkOrderProcessing {
     private Integer workId; // 工单ID
     private String operatorOpenid; // 操作人openid
     private String operatorRole; // 操作人角色
-    private String operatorName; // 新增：操作人姓名
+    private String operatorUsername; // 操作人用户名
     private String actionType; // 操作类型
     private String actionDescription; // 操作描述
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "GMT+8")
